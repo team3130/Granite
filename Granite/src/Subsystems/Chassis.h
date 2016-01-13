@@ -16,10 +16,11 @@ private:
 	static ChassisSubsystem* m_pInstance;
 	RobotDrive m_drive;
 
-	const int LEFTBACKMOTOR = 0;
-	const int RIGHTBACKMOTOR = 1;
-	const int LEFTFRONTMOTOR = 2;
-	const int RIGHTFRONTMOTOR = 3;
+	const int M_FrontLeft = 2;
+	const int M_RearLeft = 0;
+	const int M_FrontRight = 3;
+	const int M_RearRight = 1;
+
 
 	ChassisSubsystem();
 	ChassisSubsystem(ChassisSubsystem const&);

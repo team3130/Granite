@@ -9,10 +9,11 @@ ChassisSubsystem* ChassisSubsystem::GetInstance()
 	return m_pInstance;
 }
 
-ChassisSubsystem::ChassisSubsystem() :
-		Subsystem("Chassis")
-        , m_drive(LEFTFRONTMOTOR,LEFTBACKMOTOR,RIGHTFRONTMOTOR,RIGHTBACKMOTOR)
+ChassisSubsystem::ChassisSubsystem()
+		: Subsystem("Chassis")
+        , m_drive(M_FrontLeft,M_RearLeft,M_FrontRight,M_RearRight)
 {
+	m_drive.SetSafetyEnabled(false);
 
 }
 

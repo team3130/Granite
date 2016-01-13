@@ -11,16 +11,19 @@ DefaultDriveCommand::DefaultDriveCommand()
 /// Called just before this Command runs the first time.
 void DefaultDriveCommand::Initialize()
 {
+	ChassisSubsystem::GetInstance()->Drive(0,0);
 }
 
 /// Called repeatedly when this Command is scheduled to run.
 void DefaultDriveCommand::Execute()
 {
 	OI* oi = OI::GetInstance();
-	double moveSpeed = oi->stickL->GetY();
-	double moveTurn = oi->stickR->GetX();
-	double speedMultiplier = (-0.5 * oi->stickL->GetZ()) + 0.5;
-	double turnMultiplier = (-0.5 * oi->stickR->GetZ()) + 0.5;
+	// Y-axis positive is down. We want positive - up. Flip it!
+	double moveSpeed = -oi->stickL->GetY();
+	// X-axis positive is to right. We want positive - turn left. Flip it!
+	double moveTurn = -oi->stickR->GetX();
+	double speedMultiplier = (0.5 * oi->stickL->GetZ()) + 0.5;
+	double turnMultiplier = (0.5 * oi->stickR->GetZ()) + 0.5;
 
 	// Only driving manual should require Quadratic inputs. By default it should be turned off
 	// Therefore here we turn it on explicitly.
