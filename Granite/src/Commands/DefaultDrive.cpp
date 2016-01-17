@@ -1,6 +1,7 @@
 #include <Commands/DefaultDrive.h>
 #include <Subsystems/Chassis.h>
 #include <OI.h>
+#include <Video.h>
 
 /// Default constructor of the class.
 DefaultDriveCommand::DefaultDriveCommand()
@@ -28,6 +29,8 @@ void DefaultDriveCommand::Execute()
 	// Only driving manual should require Quadratic inputs. By default it should be turned off
 	// Therefore here we turn it on explicitly.
 	ChassisSubsystem::GetInstance()->Drive(moveSpeed * speedMultiplier, moveTurn * turnMultiplier, true);
+
+	SmartDashboard::PutNumber("Video Heading", RobotVideo::GetInstance()->GetTurn());
 }
 
 /// Make this return true when this Command no longer needs to run execute().

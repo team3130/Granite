@@ -11,9 +11,9 @@ ChassisSubsystem* ChassisSubsystem::GetInstance()
 
 ChassisSubsystem::ChassisSubsystem()
 		: Subsystem("Chassis")
-        , m_drive(M_FrontLeft,M_RearLeft,M_FrontRight,M_RearRight)
 {
-	m_drive.SetSafetyEnabled(false);
+    m_drive = new RobotDrive(M_FrontLeft,M_RearLeft,M_FrontRight,M_RearRight);
+	m_drive->SetSafetyEnabled(false);
 
 }
 
@@ -28,5 +28,5 @@ void ChassisSubsystem::InitDefaultCommand()
 
 void ChassisSubsystem::Drive(double move, double turn, bool quad)
 {
-	m_drive.ArcadeDrive(move, turn, quad);
+	m_drive->ArcadeDrive(move, turn, quad);
 }

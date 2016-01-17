@@ -8,7 +8,6 @@
 #ifndef SRC_VIDEO_H_
 #define SRC_VIDEO_H_
 
-#include <opencv2/opencv.hpp>
 #include <pthread.h>
 #include <unistd.h>
 
@@ -16,8 +15,9 @@ class RobotVideo {
 private:
 	static RobotVideo* m_pInstance;
 	pthread_mutex_t m_mutex = PTHREAD_MUTEX_INITIALIZER;
+	pthread_t m_thread;
 	bool m_connected;
-	cv::Mat frame;
+	float m_Ro, m_turn;
 
 	// Hide constructors because singleton
 	RobotVideo();
@@ -29,8 +29,10 @@ public:
 	static RobotVideo* GetInstance()
 	{ if(!m_pInstance) m_pInstance = new RobotVideo; return m_pInstance; };
 	void Run();
+	void spawn();
+	float GetTurn() {float f_turn; mutex_lock(); f_turn = m_turn; mutex_unlock(); return f_turn;};
 };
 
-void VideoThread(void *param);
+void *VideoThread(void *param);
 
 #endif /* SRC_VIDEO_H_ */

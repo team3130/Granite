@@ -1,4 +1,5 @@
 #include <Subsystems/Chassis.h>
+#include <Video.h>
 
 class Robot: public IterativeRobot
 {
@@ -11,6 +12,7 @@ private:
 		// Create a single static instance of all of your subsystems. The following
 		// line should be repeated for each subsystem in the project.
 		ChassisSubsystem::GetInstance();
+		RobotVideo::GetInstance()->spawn();
 		autonomousCommand = NULL;
 		lw = LiveWindow::GetInstance();
 	}
