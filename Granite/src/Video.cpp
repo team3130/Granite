@@ -8,8 +8,8 @@
 #include <list>
 #include <algorithm>
 
-static const	cv::Vec3i BlobLower(144,  36, 125);
-static const	cv::Vec3i BlobUpper(192, 255, 255);
+static const	cv::Vec3i BlobLower(71,  65,  65);
+static const	cv::Vec3i BlobUpper(91, 255, 255);
 static const 	std::vector<cv::Point> stencil = {
 		{ 32, 0 },
 		{ 26, 76 },
@@ -49,13 +49,14 @@ RobotVideo::RobotVideo()
 	: m_mutex(PTHREAD_MUTEX_INITIALIZER)
 	, m_thread()
 	, m_connected(false)
+	, m_idle(true)
 	, m_Ro(0)
 	, m_turn(0)
 {
 
 }
 
-void RobotVideo::spawn()
+void RobotVideo::Spawn()
 {
 	pthread_create(&m_thread, NULL, VideoThread, NULL);
 }
@@ -111,13 +112,13 @@ cv::Vec4f CalculateLocation(std::vector<cv::Point> target)
 
 void RobotVideo::Run()
 {
-	cv::VideoCapture capture(0);
+	cv::VideoCapture capture;
 	//open the video stream and make sure it's opened
 	//We specify desired frame size and fps in constructor
 	//Camera must be able to support specified framesize and frames per second
 	//or this will set camera to defaults
 	int count=1;
-	while (!capture.open(-1, 640, 480, 7.5))
+	while (!capture.open(0, 640, 480, 7.5))
 	//while (!capture.isOpened())
 	{
 		std::cerr << "Error connecting to camera stream, retrying " << count<< std::endl;
@@ -129,8 +130,8 @@ void RobotVideo::Run()
 	//all opencv v4l2 camera controls scale from 0.0 to 1.0
 
 	//vcap.set(CV_CAP_PROP_EXPOSURE_AUTO, 1);
-	capture.set(CV_CAP_PROP_EXPOSURE_ABSOLUTE, 0.1);
-	capture.set(CV_CAP_PROP_BRIGHTNESS, 1);
+	capture.set(CV_CAP_PROP_EXPOSURE_ABSOLUTE, 0);
+	capture.set(CV_CAP_PROP_BRIGHTNESS, 0);
 	capture.set(CV_CAP_PROP_CONTRAST, 0);
 
 
@@ -146,6 +147,15 @@ void RobotVideo::Run()
 
 	int nframe = 0;
 	while(true) {
+		mutex_lock();
+		bool idle = m_idle;
+		mutex_unlock();
+
+		if(idle) {
+			usleep(1000000);
+			continue;
+		}
+
 		cv::Mat Im;
 		cv::Mat hsvIm;
 		cv::Mat BlobIm;

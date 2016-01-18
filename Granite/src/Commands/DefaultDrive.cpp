@@ -13,6 +13,7 @@ DefaultDriveCommand::DefaultDriveCommand()
 void DefaultDriveCommand::Initialize()
 {
 	ChassisSubsystem::GetInstance()->Drive(0,0);
+	RobotVideo::GetInstance()->Enable();
 }
 
 /// Called repeatedly when this Command is scheduled to run.
@@ -31,6 +32,7 @@ void DefaultDriveCommand::Execute()
 	ChassisSubsystem::GetInstance()->Drive(moveSpeed * speedMultiplier, moveTurn * turnMultiplier, true);
 
 	SmartDashboard::PutNumber("Video Heading", RobotVideo::GetInstance()->GetTurn());
+	SmartDashboard::PutNumber("Video Distance", RobotVideo::GetInstance()->GetDistance());
 }
 
 /// Make this return true when this Command no longer needs to run execute().
