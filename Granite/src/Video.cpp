@@ -200,7 +200,7 @@ void RobotVideo::Run()
 			*/
 
 			if (target.size() > 0 && sim1 < 2.0) {
-				cv::polylines(Im, target, true, cv::Scalar(0, 200, 255),4);
+				//cv::polylines(Im, target, true, cv::Scalar(0, 200, 255),4);
 				cv::Vec4f cameralocation = CalculateLocation(target);
 
 				// Store calculations in a queue but use a list instead so we can iterate
@@ -208,10 +208,10 @@ void RobotVideo::Run()
 				locationsY.push_front(cameralocation[1]);
 				locationsZ.push_front(cameralocation[2]);
 				locationsA.push_front(cameralocation[3]);
-				if (locationsX.size()>10) locationsX.pop_back();
-				if (locationsY.size()>10) locationsY.pop_back();
-				if (locationsZ.size()>10) locationsZ.pop_back();
-				if (locationsA.size()>10) locationsA.pop_back();
+				if (locationsX.size()>5) locationsX.pop_back();
+				if (locationsY.size()>5) locationsY.pop_back();
+				if (locationsZ.size()>5) locationsZ.pop_back();
+				if (locationsA.size()>3) locationsA.pop_back();
 
 				// When we collect enough data get the median value for each coordinate
 				// Median rather than average because median tolerate noise better

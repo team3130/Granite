@@ -1,13 +1,12 @@
 #ifndef CameraTest_H
 #define CameraTest_H
 
-#include "opencv2/opencv.hpp"
 #include "WPILib.h"
+#include "Video.h"
+#include "Subsystems/Chassis.h"
 
 class CameraTest: public Command
 {
-	bool connected;
-	cv::VideoCapture capture;
 public:
 	CameraTest();
 	void Initialize();

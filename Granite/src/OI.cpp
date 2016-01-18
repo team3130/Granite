@@ -10,7 +10,7 @@ OI::OI()
 	stickR = new Joystick(1);
 	gamepad = new Joystick(2);
 	magicButton = new JoystickButton(stickR, 3);
-	//magicButton->WhenPressed(new CameraTest());
+	magicButton->WhileHeld(new CameraTest());
 }
 
 OI* OI::GetInstance()
