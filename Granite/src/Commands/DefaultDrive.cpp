@@ -31,8 +31,10 @@ void DefaultDriveCommand::Execute()
 	// Therefore here we turn it on explicitly.
 	ChassisSubsystem::GetInstance()->Drive(moveSpeed * speedMultiplier, moveTurn * turnMultiplier, true);
 
+	RobotVideo::GetInstance()->mutex_lock();
 	SmartDashboard::PutNumber("Video Heading", RobotVideo::GetInstance()->GetTurn());
 	SmartDashboard::PutNumber("Video Distance", RobotVideo::GetInstance()->GetDistance());
+	RobotVideo::GetInstance()->mutex_unlock();
 }
 
 /// Make this return true when this Command no longer needs to run execute().

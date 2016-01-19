@@ -10,6 +10,8 @@ CameraTest::CameraTest()
 // Called just before this Command runs the first time
 void CameraTest::Initialize()
 {
+	RobotVideo::GetInstance()->SetHeadingQueueSize(0);
+	RobotVideo::GetInstance()->SetLocationQueueSize(0);
 	RobotVideo::GetInstance()->Enable();
 }
 
@@ -20,21 +22,32 @@ void CameraTest::Execute()
 	double moveSpeed = -oi->stickL->GetY();
 	double speedMultiplier = (0.5 * oi->stickL->GetZ()) + 0.5;
 
-	float turn = RobotVideo::GetInstance()->GetTurn();
-	if(turn > 10) turn = 0.12;
-	else if(turn < -10) turn = -0.12;
+	float turn = 0;
+	RobotVideo::GetInstance()->mutex_lock();
+	bool got_turn = RobotVideo::GetInstance()->HaveHeading();
+	if(got_turn) turn = RobotVideo::GetInstance()->GetTurn();
+	RobotVideo::GetInstance()->mutex_unlock();
+
+	if(got_turn)
+		SmartDashboard::PutNumber("Video Heading", turn);
+	else
+		SmartDashboard::PutNumber("Video Heading", -999);
+	//SmartDashboard::PutNumber("Video Distance", RobotVideo::GetInstance()->GetDistance());
+
+	if(turn > 10) turn = turn/700 + 0.2;
+	else if(turn < -10) turn = turn/700 - 0.2;
 	else turn = 0;
 
-	ChassisSubsystem::GetInstance()->Drive(moveSpeed * speedMultiplier, turn);
-
-	SmartDashboard::PutNumber("Video Heading", RobotVideo::GetInstance()->GetTurn());
-	SmartDashboard::PutNumber("Video Distance", RobotVideo::GetInstance()->GetDistance());
+	ChassisSubsystem::GetInstance()->Drive(moveSpeed * speedMultiplier, turn, true);
 }
 
 // Make this return true when this Command no longer needs to run execute()
 bool CameraTest::IsFinished()
 {
-	return fabs(RobotVideo::GetInstance()->GetTurn()) < 10;
+//	RobotVideo::GetInstance()->mutex_lock();
+//	bool ret = fabs(RobotVideo::GetInstance()->GetTurn()) < 10;
+//	RobotVideo::GetInstance()->mutex_unlock();
+	return false; //ret;
 }
 
 // Called once after isFinished returns true

@@ -7,9 +7,11 @@
 #include <iostream>
 #include <list>
 #include <algorithm>
+#include <WPILib.h>
+#include <Timer.h>
 
-static const	cv::Vec3i BlobLower(71,  65,  65);
-static const	cv::Vec3i BlobUpper(91, 255, 255);
+static const	cv::Vec3i BlobLower(66,  65,  65);
+static const	cv::Vec3i BlobUpper(96, 255, 255);
 static const 	std::vector<cv::Point> stencil = {
 		{ 32, 0 },
 		{ 26, 76 },
@@ -50,8 +52,12 @@ RobotVideo::RobotVideo()
 	, m_thread()
 	, m_connected(false)
 	, m_idle(true)
+	, m_haveLocation(false)
+	, m_haveHeading(false)
 	, m_Ro(0)
 	, m_turn(0)
+	, m_sizeLocation(7)
+	, m_sizeHeading(7)
 {
 
 }
@@ -110,70 +116,100 @@ cv::Vec4f CalculateLocation(std::vector<cv::Point> target)
 	return cv::Vec4f(location[0], location[1], location[2], 0.5*(hull[0].x + hull[1].x));
 }
 
+void PurgeBuffer(cv::VideoCapture& vcap, double fps=7.5)
+{
+	Timer timer;
+	double start, end;
+	cv::Mat frame;
+
+	timer.Reset();
+	timer.Start();
+	//run in continuous loop
+	while (true)
+	{
+		start = timer.Get();
+		vcap.read(frame);
+		end = timer.Get();
+
+		//The stream takes a while to start up, and because of it, images from the camera
+		//buffer. We don't have a way to jump to the end of the stream to get the latest image, so we
+		//run this loop as fast as we can and throw away all the old images. This wait, waits some number of seconds
+		//before we are at the end of the stream, and can allow processing to begin.
+		if (end - start > 0.5/fps || end >= 5.0)
+			break;
+	}
+}
+
 void RobotVideo::Run()
 {
 	cv::VideoCapture capture;
+
 	//open the video stream and make sure it's opened
 	//We specify desired frame size and fps in constructor
 	//Camera must be able to support specified framesize and frames per second
 	//or this will set camera to defaults
 	int count=1;
-	while (!capture.open(0, 640, 480, 7.5))
-	//while (!capture.isOpened())
+	while (!capture.open(CAPTURE_PORT, CAPTURE_COLS, CAPTURE_ROWS, CAPTURE_FPS))
 	{
 		std::cerr << "Error connecting to camera stream, retrying " << count<< std::endl;
 		count++;
-		usleep(1000000);
+		usleep(5 * 1000000);
 	}
 
 	//After Opening Camera we need to configure the returned image setting
 	//all opencv v4l2 camera controls scale from 0.0 to 1.0
-
-	//vcap.set(CV_CAP_PROP_EXPOSURE_AUTO, 1);
 	capture.set(CV_CAP_PROP_EXPOSURE_ABSOLUTE, 0);
 	capture.set(CV_CAP_PROP_BRIGHTNESS, 0);
 	capture.set(CV_CAP_PROP_CONTRAST, 0);
 
 
 	//set true to indicate we're connected and the thread is working.
-	mutex_lock();
 	m_connected = true;
-	mutex_unlock();
 
 	DataSet locationsX;
 	DataSet locationsY;
 	DataSet locationsZ;
 	DataSet locationsA;
+	size_t max_locations, max_headings;
 
-	int nframe = 0;
+	PurgeBuffer(capture, CAPTURE_FPS);
 	while(true) {
-		mutex_lock();
-		bool idle = m_idle;
-		mutex_unlock();
-
-		if(idle) {
-			usleep(1000000);
-			continue;
-		}
-
 		cv::Mat Im;
 		cv::Mat hsvIm;
 		cv::Mat BlobIm;
 		cv::Mat bw;
+		cv::Vec4f cameralocation;
+		Timer timer;
+		bool haveLocation=false, haveHeading=false;
 
+		timer.Reset();
 		capture >> Im;
 		if (Im.empty()) {
 			std::cerr << " Error reading from camera" << std::endl;
-			usleep(5000000);
+			usleep(5 * 1000000);
 			continue;
 		}
+
+		if(m_idle) {
+			// Don't do any processing but sleep for a half of the camera's FPS time.
+			SmartDashboard::PutNumber("Video Time", timer.Get());
+			usleep(1000000 / CAPTURE_FPS / 2.0);
+			continue;
+		}
+
+		timer.Start();
+		mutex_lock();
+		max_locations = m_sizeLocation;
+		max_headings = m_sizeHeading;
+		mutex_unlock();
+
 		cv::cvtColor(Im, hsvIm, CV_BGR2HSV);
 		cv::inRange(hsvIm, BlobLower, BlobUpper, BlobIm);
 
 		//Extract Contours
 		BlobIm.convertTo(bw, CV_8UC1);
-		std::vector<std::vector<cv::Point>> contours;
 
+		std::vector<std::vector<cv::Point>> contours;
 		cv::findContours(bw, contours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
 
 		if (contours.size() > 0) {
@@ -182,7 +218,7 @@ void RobotVideo::Run()
 			for (std::vector<cv::Point> cont : contours)
 			{
 				// Only process cont if it is big enough, otherwise it's either too far or just a noise
-				if (cv::contourArea(cont) > 1000) {
+				if (cv::contourArea(cont) > MIN_AREA) {
 					double similarity = cv::matchShapes(stencil, cont, CV_CONTOURS_MATCH_I3, 1);
 					if (similarity < sim1)
 					{
@@ -200,42 +236,56 @@ void RobotVideo::Run()
 			*/
 
 			if (target.size() > 0 && sim1 < 2.0) {
+				haveLocation = true;
+				haveHeading = true;
 				//cv::polylines(Im, target, true, cv::Scalar(0, 200, 255),4);
-				cv::Vec4f cameralocation = CalculateLocation(target);
+				cameralocation = CalculateLocation(target);
 
-				// Store calculations in a queue but use a list instead so we can iterate
-				locationsX.push_front(cameralocation[0]);
-				locationsY.push_front(cameralocation[1]);
-				locationsZ.push_front(cameralocation[2]);
-				locationsA.push_front(cameralocation[3]);
-				if (locationsX.size()>5) locationsX.pop_back();
-				if (locationsY.size()>5) locationsY.pop_back();
-				if (locationsZ.size()>5) locationsZ.pop_back();
-				if (locationsA.size()>3) locationsA.pop_back();
-
-				// When we collect enough data get the median value for each coordinate
-				// Median rather than average because median tolerate noise better
-				if (locationsX.size()>2) cameralocation[0] = locationsX.GetMedian();
-				if (locationsY.size()>2) cameralocation[1] = locationsY.GetMedian();
-				if (locationsZ.size()>2) cameralocation[2] = locationsZ.GetMedian();
-				if (locationsA.size()>2) cameralocation[3] = locationsA.GetMedian();
-
-				mutex_lock();
-				m_Ro = sqrtf(cameralocation[0] * cameralocation[0] + cameralocation[1] * cameralocation[1] + cameralocation[2] * cameralocation[2]);
-				m_turn = Im.cols / 2 - cameralocation[3];
-				mutex_unlock();
-				//std::ostringstream oss;
-				//oss << heading << " " << Ro << std::endl;
-				//cv::putText(Im, oss.str(), textOrg, 1, 2, cv::Scalar(0, 200,255), 2);
+				if(max_locations > 0) {
+					// Store calculations in a queue but use a list instead so we can iterate
+					locationsX.push_front(cameralocation[0]);
+					locationsY.push_front(cameralocation[1]);
+					locationsZ.push_front(cameralocation[2]);
+				}
+				if(max_headings > 0) {
+					locationsA.push_front(cameralocation[3]);
+				}
 			}
 		}
 
-		nframe++;
-		if(nframe%64 == 0) {
-			//cv::imwrite("alpha.png", Im);
+		float x=0, y=0, z=0, a=0;
+		if (locationsX.size() > max_locations) locationsX.pop_back();
+		if (locationsY.size() > max_locations) locationsY.pop_back();
+		if (locationsZ.size() > max_locations) locationsZ.pop_back();
+		if (locationsA.size() > max_headings) locationsA.pop_back();
+
+		if (haveLocation && max_locations == 0) {
+			x = cameralocation[0];
+			y = cameralocation[1];
+			z = cameralocation[2];
 		}
-		//cv::imshow("Image", Im);
-		//cv::imshow("Blob", BlobIm);
+		else if (locationsX.size()>0 && locationsY.size()>0 && locationsZ.size()>0) {
+			// When we collect enough data get the median value for each coordinate
+			// Median is better than average because median tolerate noise better
+			x = locationsX.GetMedian();
+			y = locationsY.GetMedian();
+			z = locationsZ.GetMedian();
+			haveLocation = true;
+		}
+		else haveLocation = false;
+
+		if (haveHeading && max_headings == 0) a = cameralocation[3];
+		else if (locationsA.size() > 0) a = locationsA.GetMedian();
+		else haveHeading = false;
+
+		mutex_lock();
+		if(haveLocation) m_Ro = sqrtf(x*x + y*y + z*z);
+		if(haveHeading) m_turn = CAPTURE_COLS/2 - a;
+		m_haveHeading = haveHeading;
+		m_haveLocation = haveLocation;
+		mutex_unlock();
+
+		SmartDashboard::PutNumber("Video Time", timer.Get());
 		usleep(1000); //sleep for 1ms
 	}
 }
