@@ -30,6 +30,7 @@ private:
 	RobotVideo(RobotVideo const&);
 	RobotVideo &operator =(RobotVideo const&);
 public:
+	int m_debug;
 	int mutex_lock() { return pthread_mutex_lock(&m_mutex); };
 	int mutex_unlock() { return pthread_mutex_unlock(&m_mutex); };
 	static RobotVideo* GetInstance()

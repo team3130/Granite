@@ -10,8 +10,8 @@
 #include <WPILib.h>
 #include <Timer.h>
 
-static const	cv::Vec3i BlobLower(66,  65,  65);
-static const	cv::Vec3i BlobUpper(96, 255, 255);
+static const	cv::Vec3i BlobLower(72,  65,  65);
+static const	cv::Vec3i BlobUpper(92, 255, 255);
 static const 	std::vector<cv::Point> stencil = {
 		{ 32, 0 },
 		{ 26, 76 },
@@ -58,6 +58,7 @@ RobotVideo::RobotVideo()
 	, m_turn(0)
 	, m_sizeLocation(7)
 	, m_sizeHeading(7)
+	, m_debug(0)
 {
 
 }
@@ -183,6 +184,8 @@ void RobotVideo::Run()
 		bool haveLocation=false, haveHeading=false;
 
 		timer.Reset();
+		timer.Stop();
+
 		capture >> Im;
 		if (Im.empty()) {
 			std::cerr << " Error reading from camera" << std::endl;
@@ -286,6 +289,12 @@ void RobotVideo::Run()
 		mutex_unlock();
 
 		SmartDashboard::PutNumber("Video Time", timer.Get());
+
+		if (m_debug == 1) {
+			cv::imwrite("alpha.png", Im);
+			if (!m_idle) cv::imwrite("beta.png", BlobIm);
+			m_debug = 0;
+		}
 		usleep(1000); //sleep for 1ms
 	}
 }
