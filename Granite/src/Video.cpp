@@ -10,8 +10,8 @@
 #include <WPILib.h>
 #include <Timer.h>
 
-static const	cv::Vec3i BlobLower(72,  65,  65);
-static const	cv::Vec3i BlobUpper(92, 255, 255);
+static const	cv::Vec3i BlobLower(65, 192,  48);
+static const	cv::Vec3i BlobUpper(90, 255, 255);
 static const 	std::vector<cv::Point> stencil = {
 		{ 32, 0 },
 		{ 26, 76 },

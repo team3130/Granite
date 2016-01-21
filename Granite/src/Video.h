@@ -16,7 +16,7 @@ private:
 	const int CAPTURE_COLS=640, CAPTURE_ROWS=480;
 	const int CAPTURE_PORT=0;
 	const double CAPTURE_FPS=15;
-	const int MIN_AREA=CAPTURE_COLS*CAPTURE_ROWS/900;
+	const int MIN_AREA=270; // Min area in pixels, 3*(25+40+25) is a rough estimate
 
 	static RobotVideo* m_pInstance;
 	pthread_mutex_t m_mutex = PTHREAD_MUTEX_INITIALIZER;

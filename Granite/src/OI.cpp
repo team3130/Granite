@@ -1,5 +1,6 @@
 #include "OI.h"
 #include "Commands/CameraTest.h"
+#include "Commands/CameraFeed.h"
 
 OI* OI::m_pInstance = NULL;
 
@@ -11,6 +12,8 @@ OI::OI()
 	gamepad = new Joystick(2);
 	magicButton = new JoystickButton(stickL, 3);
 	magicButton->WhileHeld(new CameraTest());
+	feedButton = new JoystickButton(stickL, 2);
+	feedButton->WhileHeld(new CameraFeed());
 }
 
 OI* OI::GetInstance()
