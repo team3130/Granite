@@ -5,6 +5,7 @@
 
 class CameraFeed: public Command
 {
+	Image *image;
 public:
 	CameraFeed();
 	void Initialize();

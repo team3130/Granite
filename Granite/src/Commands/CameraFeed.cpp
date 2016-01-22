@@ -3,9 +3,11 @@
 #include "Vision/VisionAPI.h"
 
 CameraFeed::CameraFeed()
+	: image(frcCreateImage(IMAQ_IMAGE_RGB))
 {
 	// Use Requires() here to declare subsystem dependencies
 	// eg. Requires(chassis);
+	SetRunWhenDisabled(true);
 }
 
 // Called just before this Command runs the first time
@@ -19,13 +21,11 @@ void CameraFeed::Initialize()
 // Called repeatedly when this Command is scheduled to run
 void CameraFeed::Execute()
 {
-	if(RobotVideo::GetInstance()->m_debug) {
-		Image *image = frcCreateImage(IMAQ_IMAGE_RGB);
-		frcReadImage(image,"alpha.png");
+	RobotVideo::GetInstance()->SetLocationQueueSize(10.0 * SmartDashboard::GetNumber("DB/Slider 0",0));
+	if(!RobotVideo::GetInstance()->m_debug) {
+		frcReadImage(image,RobotVideo::IMG_FILE_NAME);
 		CameraServer::GetInstance()->SetImage(image);
-		frcDispose(image);
-	}
-	else {
+		//frcDispose(image);
 		RobotVideo::GetInstance()->m_debug = true;
 	}
 }

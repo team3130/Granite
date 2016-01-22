@@ -1,5 +1,4 @@
 #include <Video.h>
-#include "opencv2/core/core.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/calib3d/calib3d.hpp"
 #include "opencv2/highgui/highgui.hpp"
@@ -9,6 +8,10 @@
 #include <algorithm>
 #include <WPILib.h>
 #include <Timer.h>
+
+const char* RobotVideo::IMG_FILE_NAME = "/var/volatile/tmp/alpha.png";
+const double RobotVideo::CAPTURE_FPS=15;
+
 
 static const	cv::Vec3i BlobLower(65, 192,  48);
 static const	cv::Vec3i BlobUpper(90, 255, 255);
@@ -46,10 +49,10 @@ static const cv::Matx<double, 5, 1> distortion_coefficients(
 
 
 RobotVideo* RobotVideo::m_pInstance = NULL;
+pthread_t   RobotVideo::m_thread;
 
 RobotVideo::RobotVideo()
 	: m_mutex(PTHREAD_MUTEX_INITIALIZER)
-	, m_thread()
 	, m_connected(false)
 	, m_idle(true)
 	, m_haveLocation(false)
@@ -58,15 +61,23 @@ RobotVideo::RobotVideo()
 	, m_turn(0)
 	, m_sizeLocation(7)
 	, m_sizeHeading(7)
+	, m_hull(std::vector<cv::Point>(3))
+	, m_location(cv::Vec3f())
 	, m_debug(0)
 {
 
 }
 
-void RobotVideo::Spawn()
+RobotVideo* RobotVideo::GetInstance()
 {
-	pthread_create(&m_thread, NULL, VideoThread, NULL);
-}
+	if(!m_pInstance) {
+		m_pInstance = new RobotVideo;
+		// Recursion hazard!!! VideoThread() also uses this GetInstance()
+		// But the second reentry should not come to this point because m_pInstance will be defined.
+		pthread_create(&m_thread, NULL, VideoThread, NULL);
+	}
+	return m_pInstance;
+};
 
 class DataSet : public std::list<float> {
 public:
@@ -85,36 +96,36 @@ float DataSet::GetMedian()
 	else return 0;
 }
 
-cv::Vec4f CalculateLocation(std::vector<cv::Point> target)
+bool RobotVideo::CalculateLocation(std::vector<cv::Point> target)
 {
 	//Extract 4 corner points assuming the blob is a rectanle, more or less horizontal
-	std::vector<cv::Point> hull(4);
-	hull[0] = cv::Point(10000, 10000);		// North-West
-	hull[1] = cv::Point(0, 10000);			// North-East
-	hull[2] = cv::Point(0, 0);				// South-East
-	hull[3] = cv::Point(10000, 0);			// South-West
+	m_hull[0] = cv::Point(10000, 10000);		// North-West
+	m_hull[1] = cv::Point(0, 10000);			// North-East
+	m_hull[2] = cv::Point(0, 0);				// South-East
+	m_hull[3] = cv::Point(10000, 0);			// South-West
 	for (cv::Point point : target) {
-		if (hull[0].x + hull[0].y > point.x + point.y) hull[0] = point;
-		if (hull[1].y - hull[1].x > point.y - point.x) hull[1] = point;
-		if (hull[2].x + hull[2].y < point.x + point.y) hull[2] = point;
-		if (hull[3].x - hull[3].y > point.x - point.y) hull[3] = point;
+		if (m_hull[0].x + m_hull[0].y > point.x + point.y) m_hull[0] = point;
+		if (m_hull[1].y - m_hull[1].x > point.y - point.x) m_hull[1] = point;
+		if (m_hull[2].x + m_hull[2].y < point.x + point.y) m_hull[2] = point;
+		if (m_hull[3].x - m_hull[3].y > point.x - point.y) m_hull[3] = point;
 	}
 
 	// Make 'em float
 	std::vector<cv::Point2f> imagePoints(4);
-	imagePoints[0] = hull[0];
-	imagePoints[1] = hull[1];
-	imagePoints[2] = hull[2];
-	imagePoints[3] = hull[3];
+	imagePoints[0] = m_hull[0];
+	imagePoints[1] = m_hull[1];
+	imagePoints[2] = m_hull[2];
+	imagePoints[3] = m_hull[3];
 
 	cv::Vec3d rvec, tvec;
 	cv::Matx33d Rmat;
 
-	cv::solvePnP(objectPoints, imagePoints, camera_matrix, distortion_coefficients, rvec, tvec, false, CV_EPNP);
-	cv::Rodrigues(rvec, Rmat);
-
-	cv::Vec3f location = -(Rmat.t() * tvec);
-	return cv::Vec4f(location[0], location[1], location[2], 0.5*(hull[0].x + hull[1].x));
+	if(cv::solvePnP(objectPoints, imagePoints, camera_matrix, distortion_coefficients, rvec, tvec, false, CV_EPNP)) {
+		cv::Rodrigues(rvec, Rmat);
+		m_location = -(Rmat.t() * tvec);
+		return true;
+	}
+	else return false;
 }
 
 void PurgeBuffer(cv::VideoCapture& vcap, double fps=7.5)
@@ -160,7 +171,7 @@ void RobotVideo::Run()
 	//After Opening Camera we need to configure the returned image setting
 	//all opencv v4l2 camera controls scale from 0.0 to 1.0
 	capture.set(CV_CAP_PROP_EXPOSURE_ABSOLUTE, 0);
-	capture.set(CV_CAP_PROP_BRIGHTNESS, 0);
+	capture.set(CV_CAP_PROP_BRIGHTNESS, 0.12);
 	capture.set(CV_CAP_PROP_CONTRAST, 0);
 
 
@@ -171,7 +182,6 @@ void RobotVideo::Run()
 	DataSet locationsY;
 	DataSet locationsZ;
 	DataSet locationsA;
-	size_t max_locations, max_headings;
 
 	PurgeBuffer(capture, CAPTURE_FPS);
 	while(true) {
@@ -179,7 +189,6 @@ void RobotVideo::Run()
 		cv::Mat hsvIm;
 		cv::Mat BlobIm;
 		cv::Mat bw;
-		cv::Vec4f cameralocation;
 		Timer timer;
 		bool haveLocation=false, haveHeading=false;
 
@@ -202,8 +211,9 @@ void RobotVideo::Run()
 
 		timer.Start();
 		mutex_lock();
-		max_locations = m_sizeLocation;
-		max_headings = m_sizeHeading;
+		size_t max_locations = m_sizeLocation;
+		size_t max_headings = m_sizeHeading;
+		int debug = m_debug;
 		mutex_unlock();
 
 		cv::cvtColor(Im, hsvIm, CV_BGR2HSV);
@@ -239,62 +249,72 @@ void RobotVideo::Run()
 			*/
 
 			if (target.size() > 0 && sim1 < 2.0) {
-				haveLocation = true;
-				haveHeading = true;
-				//cv::polylines(Im, target, true, cv::Scalar(0, 200, 255),4);
-				cameralocation = CalculateLocation(target);
+				//if (debug)
+				//	cv::polylines(Im, target, true, cv::Scalar(0, 200, 255),4);
+				if(CalculateLocation(target)) {
+					haveLocation = true;
+					haveHeading = true;
+					if(max_locations > 0) {
+						// Store calculations in a queue but use a list instead so we can iterate
+						locationsX.push_front(m_location[0]);
+						locationsY.push_front(m_location[1]);
+						locationsZ.push_front(m_location[2]);
+					}
+					if(max_headings > 0) {
+						locationsA.push_front(CAPTURE_COLS/2 - 0.5*(m_hull[0].x + m_hull[1].x));
+					}
+					std::vector<cv::Point> crosshair;
 
-				if(max_locations > 0) {
-					// Store calculations in a queue but use a list instead so we can iterate
-					locationsX.push_front(cameralocation[0]);
-					locationsY.push_front(cameralocation[1]);
-					locationsZ.push_front(cameralocation[2]);
-				}
-				if(max_headings > 0) {
-					locationsA.push_front(cameralocation[3]);
+					if (debug) {
+						crosshair.push_back(cv::Point(m_hull[0].x-5, m_hull[0].y-5));
+						crosshair.push_back(cv::Point(m_hull[1].x+5, m_hull[1].y-5));
+						crosshair.push_back(cv::Point(m_hull[2].x+5, m_hull[2].y+5));
+						crosshair.push_back(cv::Point(m_hull[3].x-5, m_hull[3].y+5));
+						cv::polylines(Im, crosshair, true, cv::Scalar(260, 0, 255),2);
+					}
 				}
 			}
 		}
 
-		float x=0, y=0, z=0, a=0;
-		if (locationsX.size() > max_locations) locationsX.pop_back();
-		if (locationsY.size() > max_locations) locationsY.pop_back();
-		if (locationsZ.size() > max_locations) locationsZ.pop_back();
-		if (locationsA.size() > max_headings) locationsA.pop_back();
+		while (locationsX.size() > max_locations) locationsX.pop_back();
+		while (locationsY.size() > max_locations) locationsY.pop_back();
+		while (locationsZ.size() > max_locations) locationsZ.pop_back();
+		while (locationsA.size() > max_headings) locationsA.pop_back();
 
-		if (haveLocation && max_locations == 0) {
-			x = cameralocation[0];
-			y = cameralocation[1];
-			z = cameralocation[2];
-		}
-		else if (locationsX.size()>0 && locationsY.size()>0 && locationsZ.size()>0) {
+		if (max_locations>0 && locationsX.size()>0 && locationsY.size()>0 && locationsZ.size()>0) {
 			// When we collect enough data get the median value for each coordinate
 			// Median is better than average because median tolerate noise better
-			x = locationsX.GetMedian();
-			y = locationsY.GetMedian();
-			z = locationsZ.GetMedian();
+			m_location[0] = locationsX.GetMedian();
+			m_location[1] = locationsY.GetMedian();
+			m_location[2] = locationsZ.GetMedian();
 			haveLocation = true;
 		}
-		else haveLocation = false;
 
-		if (haveHeading && max_headings == 0) a = cameralocation[3];
+		float a;
+		if (haveHeading && max_headings == 0) a = CAPTURE_COLS/2 - 0.5*(m_hull[0].x + m_hull[1].x);
 		else if (locationsA.size() > 0) a = locationsA.GetMedian();
 		else haveHeading = false;
 
 		mutex_lock();
-		if(haveLocation) m_Ro = sqrtf(x*x + y*y + z*z);
-		if(haveHeading) m_turn = CAPTURE_COLS/2 - a;
+		if(haveLocation) m_Ro = sqrtf(m_location.dot(m_location));
+		if(haveHeading) m_turn = a / (CAPTURE_COLS/2);
 		m_haveHeading = haveHeading;
 		m_haveLocation = haveLocation;
 		mutex_unlock();
 
-		SmartDashboard::PutNumber("Video Time", timer.Get());
+		std::ostringstream oss;
+		oss << m_turn << " " << max_locations;
+		cv::putText(Im, oss.str(), cv::Point(20,CAPTURE_ROWS-40), 1, 2, cv::Scalar(0, 200,255), 2);
+		oss.seekp(0);
+		oss << m_location;
+		cv::putText(Im, oss.str(), cv::Point(20,CAPTURE_ROWS-20), 1, 2, cv::Scalar(0, 200,255), 2);
 
-		if (m_debug == 1) {
-			cv::imwrite("alpha.png", Im);
+		if (debug == 1) {
+			cv::imwrite(IMG_FILE_NAME, Im);
 			if (!m_idle) cv::imwrite("beta.png", BlobIm);
 			m_debug = 0;
 		}
+		SmartDashboard::PutNumber("Video Time", timer.Get());
 		usleep(1000); //sleep for 1ms
 	}
 }

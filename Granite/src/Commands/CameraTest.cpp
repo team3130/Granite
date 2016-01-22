@@ -31,11 +31,11 @@ void CameraTest::Execute()
 	if(got_turn)
 		SmartDashboard::PutNumber("Video Heading", turn);
 	else
-		SmartDashboard::PutNumber("Video Heading", -999);
+		SmartDashboard::PutNumber("Video Heading", -9999);
 	//SmartDashboard::PutNumber("Video Distance", RobotVideo::GetInstance()->GetDistance());
 
-	if(turn > 10) turn = turn/700 + 0.2;
-	else if(turn < -10) turn = turn/700 - 0.2;
+	if(turn > 0.10) turn = turn/2 + 0.2;
+	else if(turn < -0.10) turn = turn/2 - 0.2;
 	else turn = 0;
 
 	ChassisSubsystem::GetInstance()->Drive(moveSpeed * speedMultiplier, turn, true);
