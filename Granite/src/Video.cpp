@@ -58,6 +58,7 @@ RobotVideo::RobotVideo()
 	, m_sizeHeading(7)
 	, m_boxes()
 	, m_locations()
+	, m_turns(MAX_TARGETS)
 	, m_display(0)
 {
 
@@ -71,7 +72,7 @@ RobotVideo* RobotVideo::GetInstance()
 		// Recursion hazard!!! VideoThread() also uses this GetInstance()
 		// But the second reentry should not come to this point because m_pInstance will be defined.
 		int th = pthread_create(&m_thread, NULL, VideoThread, NULL);
-		std::cout << "RobotVideo thread created " << th << " Thread: " << m_thread << std::endl;
+		std::cerr << "RobotVideo thread created " << th << " Thread: " << m_thread << std::endl;
 	}
 	return m_pInstance;
 };
@@ -128,19 +129,26 @@ size_t RobotVideo::ProcessContours(std::vector<std::vector<cv::Point>> contours)
 			// Less the similarity index closer the contour matches the stencil shape
 			// We are interested only in very similar ones
 			if (similarity < 2.0) {
-				for (std::vector<struct Target>::iterator it = targets.begin(); it != targets.end(); ++it) {
-					// Run through all targets we have found so far and find the position where to insert the new one
-					if (similarity < it->rating) {
-						targets.insert(it, {similarity, cont});
-						break;
-					}
+				if (targets.empty()) {
+					// When we just started the first contour is our best candidate
+					targets.push_back({similarity, cont});
 				}
-				// If there are too many targets after the insert pop the last one
-				if (targets.size() >= MAX_TARGETS) targets.pop_back();
+				else {
+					for (std::vector<struct Target>::iterator it = targets.begin(); it != targets.end(); ++it) {
+						// Run through all targets we have found so far and find the position where to insert the new one
+						if (similarity < it->rating) {
+							targets.insert(it, {similarity, cont});
+							break;
+						}
+					}
+					// If there are too many targets after the insert pop the last one
+					if (targets.size() >= MAX_TARGETS) targets.pop_back();
+				}
 			}
 		}
 	}
 
+	std::vector<std::vector<cv::Point>> boxes;
 	std::vector<cv::Vec3f> locations;
 	size_t n_locs = 0;
 	for (struct Target target : targets) {
@@ -175,11 +183,15 @@ size_t RobotVideo::ProcessContours(std::vector<std::vector<cv::Point>> contours)
 		else {
 			locations.push_back(cv::Vec3f(0,0,0));
 		}
+
+		boxes.push_back(hull);
 	}
+
 	mutex_lock();
-	m_boxes.clear();
-	for (struct Target tar : targets) m_boxes.push_back(tar.contour);
+//	m_boxes.clear();
+//	for (struct Target tar : targets) m_boxes.push_back(tar.contour);
 	m_locations = locations;
+	m_boxes = boxes;
 	mutex_unlock();
 	return n_locs;
 }
@@ -244,13 +256,15 @@ void RobotVideo::Run()
 			// Don't do any processing but sleep for a half of the camera's FPS time.
 			useconds_t sleeptime = 1000000 / CAPTURE_FPS;
 			if (display) {
+				std::ostringstream oss;
+				oss << "Time: " << timer.Get();
+				cv::putText(Im, oss.str(), cv::Point(20,30), 1, 2, cv::Scalar(0, 200,255), 2);
 				cv::putText(Im, "Idle", cv::Point(20,CAPTURE_ROWS-40), 1, 2, cv::Scalar(0, 255,100), 2);
 				cv::imwrite(IMG_FILE_NAME, Im);
 				//if (!m_idle) cv::imwrite("beta.png", BlobIm);
 				m_display = 0;
 				sleeptime = 1000000 / CAPTURE_FPS / 4;
 			}
-			SmartDashboard::PutNumber("Video Time", timer.Get());
 			usleep(sleeptime);
 			continue;
 		}
@@ -271,9 +285,10 @@ void RobotVideo::Run()
 			for (size_t i = 0; i < m_boxes.size(); ++i) {
 				std::vector<cv::Point> box = m_boxes[i];
 				cv::Vec3f loc = m_locations[i];
+				float turn = 0.5*(box[0].x + box[1].x);
 
 				if(max_headings > 0) {
-					locationsA[i].push_front(0.5*(box[0].x + box[1].x));
+					locationsA[i].push_front(turn);
 				}
 
 				if(max_locations > 0) {
@@ -304,9 +319,13 @@ void RobotVideo::Run()
 					loc[2] = locationsZ[i].GetMedian();
 				}
 
+				if (max_headings>0 && locationsA[i].size()>0) {
+					turn = locationsA[i].GetMedian();
+				}
+
 				mutex_lock();
 				m_locations[i] = loc;
-				m_turns[i] = 1.0 - locationsA[i].GetMedian()/(CAPTURE_COLS/2.0);
+				m_turns[i] = 1.0 - turn/(CAPTURE_COLS/2.0);
 				mutex_unlock();
 			}
 		}
@@ -329,11 +348,13 @@ void RobotVideo::Run()
 		}
 
 		if (display) {
+			std::ostringstream oss;
+			oss << "Time: " << timer.Get();
+			cv::putText(Im, oss.str(), cv::Point(20,30), 1, 2, cv::Scalar(0, 200,255), 2);
 			cv::imwrite(IMG_FILE_NAME, Im);
 			//if (!m_idle) cv::imwrite("beta.png", BlobIm);
 			m_display = 0;
 		}
-		SmartDashboard::PutNumber("Video Time", timer.Get());
 		usleep(1000); //sleep for 1ms
 	}
 }
