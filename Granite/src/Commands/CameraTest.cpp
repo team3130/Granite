@@ -39,8 +39,6 @@ void CameraTest::Execute()
 	else turn = 0;
 
 	ChassisSubsystem::GetInstance()->Drive(moveSpeed * speedMultiplier, turn, true);
-
-	if(oi->stickL->GetRawButton(4)) RobotVideo::GetInstance()->m_debug = 1;
 }
 
 // Make this return true when this Command no longer needs to run execute()

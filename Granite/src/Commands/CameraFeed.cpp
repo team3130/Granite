@@ -22,11 +22,11 @@ void CameraFeed::Initialize()
 void CameraFeed::Execute()
 {
 	RobotVideo::GetInstance()->SetLocationQueueSize(10.0 * SmartDashboard::GetNumber("DB/Slider 0",0));
-	if(!RobotVideo::GetInstance()->m_debug) {
+	if(!RobotVideo::GetInstance()->m_display) {
 		frcReadImage(image,RobotVideo::IMG_FILE_NAME);
 		CameraServer::GetInstance()->SetImage(image);
 		//frcDispose(image);
-		RobotVideo::GetInstance()->m_debug = true;
+		RobotVideo::GetInstance()->m_display = true;
 	}
 }
 

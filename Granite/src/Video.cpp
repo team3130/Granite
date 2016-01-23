@@ -4,7 +4,6 @@
 #include "opencv2/highgui/highgui.hpp"
 
 #include <iostream>
-#include <list>
 #include <algorithm>
 #include <WPILib.h>
 #include <Timer.h>
@@ -55,15 +54,11 @@ RobotVideo::RobotVideo()
 	: m_mutex(PTHREAD_MUTEX_INITIALIZER)
 	, m_connected(false)
 	, m_idle(true)
-	, m_haveLocation(false)
-	, m_haveHeading(false)
-	, m_Ro(0)
-	, m_turn(0)
 	, m_sizeLocation(7)
 	, m_sizeHeading(7)
-	, m_hull(std::vector<cv::Point>(3))
-	, m_location(cv::Vec3f())
-	, m_debug(0)
+	, m_boxes()
+	, m_locations()
+	, m_display(0)
 {
 
 }
@@ -79,11 +74,6 @@ RobotVideo* RobotVideo::GetInstance()
 	return m_pInstance;
 };
 
-class DataSet : public std::list<float> {
-public:
-	float GetMedian();
-};
-
 float DataSet::GetMedian()
 {
 	if (size() > 2) {
@@ -94,38 +84,6 @@ float DataSet::GetMedian()
 	}
 	else if (size() > 0) return *(this->begin());
 	else return 0;
-}
-
-bool RobotVideo::CalculateLocation(std::vector<cv::Point> target)
-{
-	//Extract 4 corner points assuming the blob is a rectanle, more or less horizontal
-	m_hull[0] = cv::Point(10000, 10000);		// North-West
-	m_hull[1] = cv::Point(0, 10000);			// North-East
-	m_hull[2] = cv::Point(0, 0);				// South-East
-	m_hull[3] = cv::Point(10000, 0);			// South-West
-	for (cv::Point point : target) {
-		if (m_hull[0].x + m_hull[0].y > point.x + point.y) m_hull[0] = point;
-		if (m_hull[1].y - m_hull[1].x > point.y - point.x) m_hull[1] = point;
-		if (m_hull[2].x + m_hull[2].y < point.x + point.y) m_hull[2] = point;
-		if (m_hull[3].x - m_hull[3].y > point.x - point.y) m_hull[3] = point;
-	}
-
-	// Make 'em float
-	std::vector<cv::Point2f> imagePoints(4);
-	imagePoints[0] = m_hull[0];
-	imagePoints[1] = m_hull[1];
-	imagePoints[2] = m_hull[2];
-	imagePoints[3] = m_hull[3];
-
-	cv::Vec3d rvec, tvec;
-	cv::Matx33d Rmat;
-
-	if(cv::solvePnP(objectPoints, imagePoints, camera_matrix, distortion_coefficients, rvec, tvec, false, CV_EPNP)) {
-		cv::Rodrigues(rvec, Rmat);
-		m_location = -(Rmat.t() * tvec);
-		return true;
-	}
-	else return false;
 }
 
 void PurgeBuffer(cv::VideoCapture& vcap, double fps=7.5)
@@ -150,6 +108,78 @@ void PurgeBuffer(cv::VideoCapture& vcap, double fps=7.5)
 		if (end - start > 0.5/fps || end >= 5.0)
 			break;
 	}
+}
+
+size_t RobotVideo::ProcessContours(std::vector<std::vector<cv::Point>> contours) {
+	struct Target {
+		double rating;
+		std::vector<cv::Point> contour;
+	};
+	std::vector<struct Target> targets;
+
+	for (std::vector<cv::Point> cont : contours)
+	{
+		// Only process a contour if it is big enough, otherwise it's either too far away or just a noise
+		if (cv::contourArea(cont) > MIN_AREA) {
+			double similarity = cv::matchShapes(stencil, cont, CV_CONTOURS_MATCH_I3, 1);
+
+			// Less the similarity index closer the contour matches the stencil shape
+			// We are interested only in very similar ones
+			if (similarity < 2.0) {
+				for (std::vector<struct Target>::iterator it = targets.begin(); it != targets.end(); ++it) {
+					// Run through all targets we have found so far and find the position where to insert the new one
+					if (similarity < it->rating) {
+						targets.insert(it, {similarity, cont});
+						break;
+					}
+				}
+				// If there are too many targets after the insert pop the last one
+				if (targets.size() >= MAX_TARGETS) targets.pop_back();
+			}
+		}
+	}
+
+	std::vector<cv::Vec3f> locations;
+	size_t n_locs = 0;
+	for (struct Target target : targets) {
+		//Extract 4 corner points assuming the blob is a rectanle, more or less horizontal
+		std::vector<cv::Point> hull(4);
+		hull[0] = cv::Point(10000, 10000);		// North-West
+		hull[1] = cv::Point(0, 10000);			// North-East
+		hull[2] = cv::Point(0, 0);				// South-East
+		hull[3] = cv::Point(10000, 0);			// South-West
+		for (cv::Point point : target.contour) {
+			if (hull[0].x + hull[0].y > point.x + point.y) hull[0] = point;
+			if (hull[1].y - hull[1].x > point.y - point.x) hull[1] = point;
+			if (hull[2].x + hull[2].y < point.x + point.y) hull[2] = point;
+			if (hull[3].x - hull[3].y > point.x - point.y) hull[3] = point;
+		}
+
+		// Make 'em float
+		std::vector<cv::Point2f> imagePoints(4);
+		imagePoints[0] = hull[0];
+		imagePoints[1] = hull[1];
+		imagePoints[2] = hull[2];
+		imagePoints[3] = hull[3];
+
+		cv::Vec3d rvec, tvec;
+		cv::Matx33d Rmat;
+
+		if(cv::solvePnP(objectPoints, imagePoints, camera_matrix, distortion_coefficients, rvec, tvec, false, CV_EPNP)) {
+			cv::Rodrigues(rvec, Rmat);
+			locations.push_back( -(Rmat.t() * tvec) );
+			n_locs++;
+		}
+		else {
+			locations.push_back(cv::Vec3f(0,0,0));
+		}
+	}
+	mutex_lock();
+	m_boxes.clear();
+	for (struct Target tar : targets) m_boxes.push_back(tar.contour);
+	m_locations = locations;
+	mutex_unlock();
+	return n_locs;
 }
 
 void RobotVideo::Run()
@@ -178,10 +208,10 @@ void RobotVideo::Run()
 	//set true to indicate we're connected and the thread is working.
 	m_connected = true;
 
-	DataSet locationsX;
-	DataSet locationsY;
-	DataSet locationsZ;
-	DataSet locationsA;
+	std::vector<DataSet> locationsX(MAX_TARGETS);
+	std::vector<DataSet> locationsY(MAX_TARGETS);
+	std::vector<DataSet> locationsZ(MAX_TARGETS);
+	std::vector<DataSet> locationsA(MAX_TARGETS);
 
 	PurgeBuffer(capture, CAPTURE_FPS);
 	while(true) {
@@ -190,7 +220,6 @@ void RobotVideo::Run()
 		cv::Mat BlobIm;
 		cv::Mat bw;
 		Timer timer;
-		bool haveLocation=false, haveHeading=false;
 
 		timer.Reset();
 		timer.Stop();
@@ -213,7 +242,7 @@ void RobotVideo::Run()
 		mutex_lock();
 		size_t max_locations = m_sizeLocation;
 		size_t max_headings = m_sizeHeading;
-		int debug = m_debug;
+		int display = m_display;
 		mutex_unlock();
 
 		cv::cvtColor(Im, hsvIm, CV_BGR2HSV);
@@ -226,93 +255,63 @@ void RobotVideo::Run()
 		cv::findContours(bw, contours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
 
 		if (contours.size() > 0) {
-			std::vector<cv::Point> target;
-			double sim1 = 1000.0;
-			for (std::vector<cv::Point> cont : contours)
-			{
-				// Only process cont if it is big enough, otherwise it's either too far or just a noise
-				if (cv::contourArea(cont) > MIN_AREA) {
-					double similarity = cv::matchShapes(stencil, cont, CV_CONTOURS_MATCH_I3, 1);
-					if (similarity < sim1)
-					{
-						target = cont;
-						sim1 = similarity;
-					}
+
+			ProcessContours(contours);
+
+			for (size_t i = 0; i < m_boxes.size(); ++i) {
+				std::vector<cv::Point> box = m_boxes[i];
+				cv::Vec3f loc = m_locations[i];
+
+				if(max_headings > 0) {
+					locationsA[i].push_front(0.5*(box[0].x + box[1].x));
 				}
-			}
 
-			/*
-			for (std::vector<cv::Point> it : contours) {
-				cv::polylines(Im, it, true, cv::Scalar(255, 0, 0));
-			}
-			std::cout << "Similarity " << sim1 << std::endl;
-			*/
+				if(max_locations > 0) {
+					locationsX[i].push_front(loc[0]);
+					locationsY[i].push_front(loc[1]);
+					locationsZ[i].push_front(loc[2]);
+				}
 
-			if (target.size() > 0 && sim1 < 2.0) {
-				//if (debug)
-				//	cv::polylines(Im, target, true, cv::Scalar(0, 200, 255),4);
-				if(CalculateLocation(target)) {
-					haveLocation = true;
-					haveHeading = true;
-					if(max_locations > 0) {
-						// Store calculations in a queue but use a list instead so we can iterate
-						locationsX.push_front(m_location[0]);
-						locationsY.push_front(m_location[1]);
-						locationsZ.push_front(m_location[2]);
-					}
-					if(max_headings > 0) {
-						locationsA.push_front(CAPTURE_COLS/2 - 0.5*(m_hull[0].x + m_hull[1].x));
-					}
+				if (display) {
 					std::vector<cv::Point> crosshair;
-
-					if (debug) {
-						crosshair.push_back(cv::Point(m_hull[0].x-5, m_hull[0].y-5));
-						crosshair.push_back(cv::Point(m_hull[1].x+5, m_hull[1].y-5));
-						crosshair.push_back(cv::Point(m_hull[2].x+5, m_hull[2].y+5));
-						crosshair.push_back(cv::Point(m_hull[3].x-5, m_hull[3].y+5));
-						cv::polylines(Im, crosshair, true, cv::Scalar(260, 0, 255),2);
-					}
+					crosshair.push_back(cv::Point(box[0].x-5, box[0].y-5));
+					crosshair.push_back(cv::Point(box[1].x+5, box[1].y-5));
+					crosshair.push_back(cv::Point(box[2].x+5, box[2].y+5));
+					crosshair.push_back(cv::Point(box[3].x-5, box[3].y+5));
+					cv::polylines(Im, crosshair, true, cv::Scalar(260, 0, 255),2);
 				}
+
+				while (locationsX[i].size() > max_locations) locationsX[i].pop_back();
+				while (locationsY[i].size() > max_locations) locationsY[i].pop_back();
+				while (locationsZ[i].size() > max_locations) locationsZ[i].pop_back();
+				while (locationsA[i].size() > max_headings) locationsA[i].pop_back();
+
+				if (max_locations>0 && locationsX[i].size()>0 && locationsY[i].size()>0 && locationsZ[i].size()>0) {
+					// When we collect enough data get the median value for each coordinate
+					// Median is better than average because median tolerate noise better
+					loc[0] = locationsX[i].GetMedian();
+					loc[1] = locationsY[i].GetMedian();
+					loc[2] = locationsZ[i].GetMedian();
+				}
+
+				mutex_lock();
+				m_locations[i] = loc;
+				m_turns[i] = 1.0 - locationsA[i].GetMedian()/(CAPTURE_COLS/2.0);
+				mutex_unlock();
 			}
 		}
-
-		while (locationsX.size() > max_locations) locationsX.pop_back();
-		while (locationsY.size() > max_locations) locationsY.pop_back();
-		while (locationsZ.size() > max_locations) locationsZ.pop_back();
-		while (locationsA.size() > max_headings) locationsA.pop_back();
-
-		if (max_locations>0 && locationsX.size()>0 && locationsY.size()>0 && locationsZ.size()>0) {
-			// When we collect enough data get the median value for each coordinate
-			// Median is better than average because median tolerate noise better
-			m_location[0] = locationsX.GetMedian();
-			m_location[1] = locationsY.GetMedian();
-			m_location[2] = locationsZ.GetMedian();
-			haveLocation = true;
-		}
-
-		float a;
-		if (haveHeading && max_headings == 0) a = CAPTURE_COLS/2 - 0.5*(m_hull[0].x + m_hull[1].x);
-		else if (locationsA.size() > 0) a = locationsA.GetMedian();
-		else haveHeading = false;
-
-		mutex_lock();
-		if(haveLocation) m_Ro = sqrtf(m_location.dot(m_location));
-		if(haveHeading) m_turn = a / (CAPTURE_COLS/2);
-		m_haveHeading = haveHeading;
-		m_haveLocation = haveLocation;
-		mutex_unlock();
 
 		std::ostringstream oss;
-		oss << m_turn << " " << max_locations;
+		oss << m_turns[0] << " " << max_locations;
 		cv::putText(Im, oss.str(), cv::Point(20,CAPTURE_ROWS-40), 1, 2, cv::Scalar(0, 200,255), 2);
 		oss.seekp(0);
-		oss << m_location;
-		cv::putText(Im, oss.str(), cv::Point(20,CAPTURE_ROWS-20), 1, 2, cv::Scalar(0, 200,255), 2);
+		oss << m_locations[0];
+		cv::putText(Im, oss.str(), cv::Point(20,CAPTURE_ROWS-18), 1, 2, cv::Scalar(0, 200,255), 2);
 
-		if (debug == 1) {
+		if (display == 1) {
 			cv::imwrite(IMG_FILE_NAME, Im);
-			if (!m_idle) cv::imwrite("beta.png", BlobIm);
-			m_debug = 0;
+			//if (!m_idle) cv::imwrite("beta.png", BlobIm);
+			m_display = 0;
 		}
 		SmartDashboard::PutNumber("Video Time", timer.Get());
 		usleep(1000); //sleep for 1ms
