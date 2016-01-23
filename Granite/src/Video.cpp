@@ -67,9 +67,11 @@ RobotVideo* RobotVideo::GetInstance()
 {
 	if(!m_pInstance) {
 		m_pInstance = new RobotVideo;
+
 		// Recursion hazard!!! VideoThread() also uses this GetInstance()
 		// But the second reentry should not come to this point because m_pInstance will be defined.
-		pthread_create(&m_thread, NULL, VideoThread, NULL);
+		int th = pthread_create(&m_thread, NULL, VideoThread, NULL);
+		std::cout << "RobotVideo thread created " << th << " Thread: " << m_thread << std::endl;
 	}
 	return m_pInstance;
 };
@@ -231,19 +233,27 @@ void RobotVideo::Run()
 			continue;
 		}
 
-		if(m_idle) {
-			// Don't do any processing but sleep for a half of the camera's FPS time.
-			SmartDashboard::PutNumber("Video Time", timer.Get());
-			usleep(1000000 / CAPTURE_FPS / 2.0);
-			continue;
-		}
-
 		timer.Start();
 		mutex_lock();
 		size_t max_locations = m_sizeLocation;
 		size_t max_headings = m_sizeHeading;
-		int display = m_display;
+		bool display = m_display;
 		mutex_unlock();
+
+		if(m_idle) {
+			// Don't do any processing but sleep for a half of the camera's FPS time.
+			useconds_t sleeptime = 1000000 / CAPTURE_FPS;
+			if (display) {
+				cv::putText(Im, "Idle", cv::Point(20,CAPTURE_ROWS-40), 1, 2, cv::Scalar(0, 255,100), 2);
+				cv::imwrite(IMG_FILE_NAME, Im);
+				//if (!m_idle) cv::imwrite("beta.png", BlobIm);
+				m_display = 0;
+				sleeptime = 1000000 / CAPTURE_FPS / 4;
+			}
+			SmartDashboard::PutNumber("Video Time", timer.Get());
+			usleep(sleeptime);
+			continue;
+		}
 
 		cv::cvtColor(Im, hsvIm, CV_BGR2HSV);
 		cv::inRange(hsvIm, BlobLower, BlobUpper, BlobIm);
@@ -301,14 +311,24 @@ void RobotVideo::Run()
 			}
 		}
 
-		std::ostringstream oss;
-		oss << m_turns[0] << " " << max_locations;
-		cv::putText(Im, oss.str(), cv::Point(20,CAPTURE_ROWS-40), 1, 2, cv::Scalar(0, 200,255), 2);
-		oss.seekp(0);
-		oss << m_locations[0];
-		cv::putText(Im, oss.str(), cv::Point(20,CAPTURE_ROWS-18), 1, 2, cv::Scalar(0, 200,255), 2);
+		if (m_turns.size() > 0) {
+			std::ostringstream oss;
+			oss << m_turns[0] << " " << max_locations;
+			cv::putText(Im, oss.str(), cv::Point(20,CAPTURE_ROWS-40), 1, 2, cv::Scalar(0, 200,255), 2);
+		}
+		else {
+			cv::putText(Im, "No target", cv::Point(20,CAPTURE_ROWS-40), 1, 2, cv::Scalar(0, 100,255), 2);
+		}
+		if (m_locations.size() > 0) {
+			std::ostringstream oss;
+			oss << m_locations[0];
+			cv::putText(Im, oss.str(), cv::Point(20,CAPTURE_ROWS-18), 1, 2, cv::Scalar(0, 200,255), 2);
+		}
+		else {
+			cv::putText(Im, "No location", cv::Point(20,CAPTURE_ROWS-18), 1, 2, cv::Scalar(0, 100,255), 2);
+		}
 
-		if (display == 1) {
+		if (display) {
 			cv::imwrite(IMG_FILE_NAME, Im);
 			//if (!m_idle) cv::imwrite("beta.png", BlobIm);
 			m_display = 0;

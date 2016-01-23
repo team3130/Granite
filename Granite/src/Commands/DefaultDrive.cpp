@@ -13,7 +13,6 @@ DefaultDriveCommand::DefaultDriveCommand()
 void DefaultDriveCommand::Initialize()
 {
 	ChassisSubsystem::GetInstance()->Drive(0,0);
-	RobotVideo::GetInstance()->Enable();
 }
 
 /// Called repeatedly when this Command is scheduled to run.
@@ -30,11 +29,6 @@ void DefaultDriveCommand::Execute()
 	// Only driving manual should require Quadratic inputs. By default it should be turned off
 	// Therefore here we turn it on explicitly.
 	ChassisSubsystem::GetInstance()->Drive(moveSpeed * speedMultiplier, moveTurn * turnMultiplier, true);
-
-	RobotVideo::GetInstance()->mutex_lock();
-	SmartDashboard::PutNumber("Video Heading", RobotVideo::GetInstance()->GetTurn());
-	SmartDashboard::PutNumber("Video Distance", RobotVideo::GetInstance()->GetDistance());
-	RobotVideo::GetInstance()->mutex_unlock();
 }
 
 /// Make this return true when this Command no longer needs to run execute().

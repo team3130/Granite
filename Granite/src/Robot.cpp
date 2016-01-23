@@ -20,9 +20,7 @@ private:
 	
 	void DisabledInit()
 	{
-		// printf("Default %s() method... Overload me!\n", __FUNCTION__);
-		//RobotVideo::GetInstance()->Disable();
-		cameraFeed->Start();
+		if (cameraFeed) cameraFeed->Start();
 	}
 
 	void DisabledPeriodic()
@@ -32,9 +30,8 @@ private:
 
 	void AutonomousInit()
 	{
-		cameraFeed->Cancel();
-		if (autonomousCommand != NULL)
-			autonomousCommand->Start();
+		if (cameraFeed) cameraFeed->Cancel();
+		if (autonomousCommand) autonomousCommand->Start();
 	}
 
 	void AutonomousPeriodic()
@@ -44,7 +41,8 @@ private:
 
 	void TeleopInit()
 	{
-		cameraFeed->Cancel();
+		if (cameraFeed) cameraFeed->Cancel();
+
 		// This makes sure that the autonomous stops running when
 		// teleop starts running. If you want the autonomous to 
 		// continue until interrupted by another command, remove
