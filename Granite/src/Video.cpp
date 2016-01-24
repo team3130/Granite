@@ -12,7 +12,7 @@ const char* RobotVideo::IMG_FILE_NAME = "/var/volatile/tmp/alpha.png";
 const double RobotVideo::CAPTURE_FPS=15;
 
 
-static const	cv::Vec3i BlobLower(65, 192,  48);
+static const	cv::Vec3i BlobLower(65, 192,   5);
 static const	cv::Vec3i BlobUpper(90, 255, 255);
 static const 	std::vector<cv::Point> stencil = {
 		{ 32, 0 },
@@ -32,20 +32,14 @@ static const std::vector<cv::Point3f> objectPoints = {
 		cv::Point3d(10, 14, 0),
 		cv::Point3d(-10, 14, 0) };
 
-/* Whiteboard res target, millimeters
-objectPoints.push_back(cv::Point3d(-135, 0, 0));
-objectPoints.push_back(cv::Point3d(135, 0, 0));
-objectPoints.push_back(cv::Point3d(135, 150, 0));
-objectPoints.push_back(cv::Point3d(-135, 150, 0));
-*/
-
-/* Microsoft HD3000 camera, inches */
+/* Microsoft HD3000 camera, 640x480, inches */
 static const cv::Matx33d camera_matrix(
-	7.4230925920305481e+002, 0., 3.0383585011521706e+002, 0.,
-	7.4431328863404576e+002, 2.3422929172706634e+002, 0., 0., 1.);
+		6.8375310267480415e+002, 0., 3.0453360376910450e+002, 0.,
+		6.7992230853496733e+002, 2.5487597233224497e+002, 0., 0., 1. );
 static const cv::Matx<double, 5, 1> distortion_coefficients(
-	2.0963551753568421e-001, -1.4796846132520820e+000, 0., 0., 2.7677879392937270e+000);
-
+		1.3027190902059158e-001, -9.7425921957537043e-001, 0., 0.,
+		1.7823261169256015e+000 );
+/* avg_reprojection_error: 2.2537737785760148e-001 */
 
 RobotVideo* RobotVideo::m_pInstance = NULL;
 pthread_t   RobotVideo::m_thread;
@@ -142,7 +136,7 @@ size_t RobotVideo::ProcessContours(std::vector<std::vector<cv::Point>> contours)
 						}
 					}
 					// If there are too many targets after the insert pop the last one
-					if (targets.size() >= MAX_TARGETS) targets.pop_back();
+					if (targets.size() > MAX_TARGETS) targets.pop_back();
 				}
 			}
 		}
@@ -188,8 +182,6 @@ size_t RobotVideo::ProcessContours(std::vector<std::vector<cv::Point>> contours)
 	}
 
 	mutex_lock();
-//	m_boxes.clear();
-//	for (struct Target tar : targets) m_boxes.push_back(tar.contour);
 	m_locations = locations;
 	m_boxes = boxes;
 	mutex_unlock();

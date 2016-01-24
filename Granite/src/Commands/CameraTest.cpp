@@ -53,7 +53,7 @@ bool CameraTest::IsFinished()
 // Called once after isFinished returns true
 void CameraTest::End()
 {
-	RobotVideo::GetInstance()->Disable();
+
 }
 
 // Called when another command which requires one or more of the same
