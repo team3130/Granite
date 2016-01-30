@@ -53,7 +53,7 @@ RobotVideo::RobotVideo()
 	, m_boxes()
 	, m_locations()
 	, m_turns(MAX_TARGETS)
-	, m_display(0)
+	, m_display(false)
 {
 
 }
@@ -254,7 +254,7 @@ void RobotVideo::Run()
 				cv::putText(Im, "Idle", cv::Point(20,CAPTURE_ROWS-40), 1, 2, cv::Scalar(0, 255,100), 2);
 				cv::imwrite(IMG_FILE_NAME, Im);
 				//if (!m_idle) cv::imwrite("beta.png", BlobIm);
-				m_display = 0;
+				m_display = false;
 				sleeptime = 1000000 / CAPTURE_FPS / 4;
 			}
 			usleep(sleeptime);
@@ -322,30 +322,30 @@ void RobotVideo::Run()
 			}
 		}
 
-		if (m_turns.size() > 0) {
-			std::ostringstream oss;
-			oss << m_turns[0] << " " << max_locations;
-			cv::putText(Im, oss.str(), cv::Point(20,CAPTURE_ROWS-40), 1, 2, cv::Scalar(0, 200,255), 2);
-		}
-		else {
-			cv::putText(Im, "No target", cv::Point(20,CAPTURE_ROWS-40), 1, 2, cv::Scalar(0, 100,255), 2);
-		}
-		if (m_locations.size() > 0) {
-			std::ostringstream oss;
-			oss << m_locations[0];
-			cv::putText(Im, oss.str(), cv::Point(20,CAPTURE_ROWS-18), 1, 2, cv::Scalar(0, 200,255), 2);
-		}
-		else {
-			cv::putText(Im, "No location", cv::Point(20,CAPTURE_ROWS-18), 1, 2, cv::Scalar(0, 100,255), 2);
-		}
-
 		if (display) {
+			if (m_turns.size() > 0) {
+				std::ostringstream oss;
+				oss << m_turns[0] << " " << max_locations;
+				cv::putText(Im, oss.str(), cv::Point(20,CAPTURE_ROWS-40), 1, 2, cv::Scalar(0, 200,255), 2);
+			}
+			else {
+				cv::putText(Im, "No target", cv::Point(20,CAPTURE_ROWS-40), 1, 2, cv::Scalar(0, 100,255), 2);
+			}
+			if (m_locations.size() > 0) {
+				std::ostringstream oss;
+				oss << m_locations[0];
+				cv::putText(Im, oss.str(), cv::Point(20,CAPTURE_ROWS-18), 1, 2, cv::Scalar(0, 200,255), 2);
+			}
+			else {
+				cv::putText(Im, "No location", cv::Point(20,CAPTURE_ROWS-18), 1, 2, cv::Scalar(0, 100,255), 2);
+			}
+
 			std::ostringstream oss;
-			oss << "Time: " << timer.Get();
+			oss << 1000.0 * timer.Get() << " msec";
 			cv::putText(Im, oss.str(), cv::Point(20,30), 1, 2, cv::Scalar(0, 200,255), 2);
 			cv::imwrite(IMG_FILE_NAME, Im);
 			//if (!m_idle) cv::imwrite("beta.png", BlobIm);
-			m_display = 0;
+			m_display = false;
 		}
 		usleep(1000); //sleep for 1ms
 	}
