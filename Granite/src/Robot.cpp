@@ -1,10 +1,12 @@
-#include <Subsystems/Chassis.h>
-#include <Commands/CameraFeed.h>
+#include "Subsystems/Chassis.h"
+#include "Commands/CameraFeed.h"
+#include "Commands/RobotSensors.h"
 
 class Robot: public IterativeRobot
 {
 private:
 	Command *autonomousCommand;
+	Command *robotSensors;
 	LiveWindow *lw;
 	CameraFeed *cameraFeed;
 
@@ -16,11 +18,13 @@ private:
 		autonomousCommand = NULL;
 		lw = LiveWindow::GetInstance();
 		cameraFeed = new CameraFeed();
+		robotSensors = new RobotSensors();
 	}
 	
 	void DisabledInit()
 	{
 		if (cameraFeed) cameraFeed->Start();
+		if (robotSensors) robotSensors->Start();
 	}
 
 	void DisabledPeriodic()
