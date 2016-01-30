@@ -12,6 +12,8 @@ DefaultDriveCommand::DefaultDriveCommand()
 /// Called just before this Command runs the first time.
 void DefaultDriveCommand::Initialize()
 {
+	ChassisSubsystem::GetInstance()->ResetEncoders();
+	ChassisSubsystem::GetInstance()->ReleaseAngle();
 	ChassisSubsystem::GetInstance()->Drive(0,0);
 }
 
@@ -19,16 +21,17 @@ void DefaultDriveCommand::Initialize()
 void DefaultDriveCommand::Execute()
 {
 	OI* oi = OI::GetInstance();
-	// Y-axis positive is down. We want positive - up. Flip it!
-	double moveSpeed = -oi->stickL->GetY();
-	// X-axis positive is to right. We want positive - turn left. Flip it!
-	double moveTurn = -oi->stickR->GetX();
-	double speedMultiplier = (0.5 * oi->stickL->GetZ()) + 0.5;
-	double turnMultiplier = (0.5 * oi->stickR->GetZ()) + 0.5;
+	if(oi) {
+		// Y-axis positive is down. We want positive - up. Flip it!
+		double LSpeed = -oi->stickL->GetY();
+		double RSpeed = -oi->stickR->GetY();
+		double LMultiplier = (0.5 * oi->stickL->GetZ()) + 0.5;
+		double RMultiplier = (0.5 * oi->stickR->GetZ()) + 0.5;
 
-	// Only driving manual should require Quadratic inputs. By default it should be turned off
-	// Therefore here we turn it on explicitly.
-	ChassisSubsystem::GetInstance()->Drive(moveSpeed * speedMultiplier, moveTurn * turnMultiplier, true);
+		// Only driving manual should require Quadratic inputs. By default it should be turned off
+		// Therefore here we turn it on explicitly.
+		ChassisSubsystem::GetInstance()->TankDrive(LSpeed * LMultiplier, RSpeed * RMultiplier, true);
+	}
 }
 
 /// Make this return true when this Command no longer needs to run execute().

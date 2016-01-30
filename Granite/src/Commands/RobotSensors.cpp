@@ -1,4 +1,5 @@
 #include "RobotSensors.h"
+#include "Subsystems/Chassis.h"
 
 RobotSensors::RobotSensors()
 {
@@ -18,7 +19,7 @@ void RobotSensors::Initialize()
 {
 	timer->Reset();
 	timer->Start();
-	SmartDashboard::PutNumber("SDB Test", 3130);
+	SmartDashboard::PutString("DB/String 9", "Test 3130");
 }
 
 // Called repeatedly when this Command is scheduled to run
@@ -44,7 +45,13 @@ void RobotSensors::Execute()
 				arduino->Write("Z", 1);
 			} */
 		}
+	std::ostringstream oss0;
+	oss0 << "Angle: " << ChassisSubsystem::GetInstance()->GetAngle();
+	SmartDashboard::PutString("DB/String 0", oss0.str());
 
+	std::ostringstream oss1;
+	oss1 << "Pos: " << ChassisSubsystem::GetInstance()->GetDistance();
+	SmartDashboard::PutString("DB/String 1", oss1.str());
 }
 
 // Make this return true when this Command no longer needs to run execute()

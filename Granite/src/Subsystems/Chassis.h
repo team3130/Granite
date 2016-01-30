@@ -10,7 +10,7 @@
  * The class manages all the driving motors and all methods of driving itself.
  * All activities with the drivetrain must be done via its public methods.
  */
-class ChassisSubsystem: public Subsystem
+class ChassisSubsystem: public PIDSubsystem
 {
 private:
 	static ChassisSubsystem* m_pInstance;
@@ -20,7 +20,10 @@ private:
 	const int M_RearLeft = 0;
 	const int M_FrontRight = 3;
 	const int M_RearRight = 1;
-
+	Encoder* m_cEncoderL;
+	Encoder* m_cEncoderR;
+	double moveSpeed;
+	bool m_onPID;
 
 	ChassisSubsystem();
 	ChassisSubsystem(ChassisSubsystem const&);
@@ -28,7 +31,16 @@ private:
 public:
 	static ChassisSubsystem* GetInstance();
 	void InitDefaultCommand();
+	virtual double ReturnPIDInput();
+	virtual void UsePIDOutput(double outputAngle);
+	double GetDistance();
+	void ResetEncoders();
+	double GetAngle();
+	void HoldAngle(double angle = 0);
+	void ReleaseAngle() { GetPIDController()->Disable(); m_onPID=false; };
+
 	void Drive(double move, double turn, bool squaredInputs = false);
+	void TankDrive(double left, double right, bool squaredInputs = false);
 };
 
 #endif
