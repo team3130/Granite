@@ -14,7 +14,6 @@ void DefaultDriveCommand::Initialize()
 {
 	ChassisSubsystem::GetInstance()->ResetEncoders();
 	ChassisSubsystem::GetInstance()->ReleaseAngle();
-	ChassisSubsystem::GetInstance()->Drive(0,0);
 }
 
 /// Called repeatedly when this Command is scheduled to run.

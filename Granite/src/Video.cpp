@@ -9,7 +9,8 @@
 #include <Timer.h>
 
 const char* RobotVideo::IMG_FILE_NAME = "/var/volatile/tmp/alpha.png";
-const double RobotVideo::CAPTURE_FPS=15;
+const double RobotVideo::CAPTURE_FPS = 7.5;
+const double RobotVideo::CAM_ANGLE = 24.5;
 
 
 static const	cv::Vec3i BlobLower(65, 192,   5);
@@ -325,7 +326,7 @@ void RobotVideo::Run()
 		if (display) {
 			if (m_turns.size() > 0) {
 				std::ostringstream oss;
-				oss << m_turns[0] << " " << max_locations;
+				oss << CAM_ANGLE * m_turns[0] << " " << max_locations;
 				cv::putText(Im, oss.str(), cv::Point(20,CAPTURE_ROWS-40), 1, 2, cv::Scalar(0, 200,255), 2);
 			}
 			else {

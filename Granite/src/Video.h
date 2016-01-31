@@ -23,6 +23,7 @@ class RobotVideo {
 public:
 	static const char* IMG_FILE_NAME;
 	static const double CAPTURE_FPS;
+	static const double CAM_ANGLE;
 	static const int CAPTURE_COLS=640, CAPTURE_ROWS=480;
 	static const int CAPTURE_PORT=0;
 	static const int MIN_AREA=270; // Min area in pixels, 3*(25+40+25) is a rough estimate
@@ -55,7 +56,7 @@ public:
 
 	// These guys need mutex locked but user should do that so can wrap them in a bunch
 	bool HaveHeading() {return m_boxes.size();};
-	float GetTurn() {return m_turns[0];};
+	float GetTurn() {return CAM_ANGLE * m_turns[0];};
 	float GetDistance() {return sqrtf(m_locations[0].dot(m_locations[0]));};
 
 	// Reading/writing a bool is atomic, no need in mutex lock

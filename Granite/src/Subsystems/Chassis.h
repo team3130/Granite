@@ -34,10 +34,12 @@ public:
 	virtual double ReturnPIDInput();
 	virtual void UsePIDOutput(double outputAngle);
 	double GetDistance();
+	double GetPIDError() {return GetSetpoint() - GetPosition();};
 	void ResetEncoders();
 	double GetAngle();
 	void HoldAngle(double angle = 0);
 	void ReleaseAngle() { GetPIDController()->Disable(); m_onPID=false; };
+	void DriveStraight(double move) { moveSpeed = move; };
 
 	void Drive(double move, double turn, bool squaredInputs = false);
 	void TankDrive(double left, double right, bool squaredInputs = false);

@@ -44,7 +44,7 @@ void ChassisSubsystem::TankDrive(double left, double right, bool quad)
 
 double ChassisSubsystem::GetAngle()
 {
-	return ( m_cEncoderL->GetDistance() - m_cEncoderR->GetDistance() ) * -180 / (26.5 * M_PI);
+	return ( m_cEncoderL->GetDistance() - m_cEncoderR->GetDistance() ) * 180 / (26.5 * M_PI);
 	/*
 	 *  Angle is 180 degrees times encoder difference over Pi * the distance between the wheels
 	 *	Made from geometry and relation between angle fraction and arc fraction with semicircles.
