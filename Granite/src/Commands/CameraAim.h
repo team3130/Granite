@@ -6,9 +6,14 @@
 class CameraAim: public Command
 {
 public:
+	enum Target_side {
+		kLeft,
+		kRight
+	};
 	Timer timer;
 	double m_tolerance;
-	CameraAim();
+	bool m_side;
+	CameraAim(Target_side side=kLeft);
 	void Initialize();
 	void Execute();
 	bool IsFinished();

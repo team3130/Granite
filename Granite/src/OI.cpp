@@ -10,8 +10,10 @@ OI::OI()
 	stickL = new Joystick(0);
 	stickR = new Joystick(1);
 	gamepad = new Joystick(2);
-	magicButton = new JoystickButton(stickL, 1);
-	magicButton->WhileHeld(new CameraAim());
+	trigLeft = new JoystickButton(stickL, 1);
+	trigLeft->WhileHeld(new CameraAim(CameraAim::kLeft));
+	trigLeft = new JoystickButton(stickR, 1);
+	trigLeft->WhileHeld(new CameraAim(CameraAim::kRight));
 	//feedButton = new JoystickButton(stickL, 2);
 	//feedButton->WhileHeld(new CameraFeed());
 }

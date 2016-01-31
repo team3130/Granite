@@ -55,9 +55,9 @@ public:
 	void SetHeadingQueueSize(size_t s) {mutex_lock(); m_sizeHeading=s; mutex_unlock();};
 
 	// These guys need mutex locked but user should do that so can wrap them in a bunch
-	bool HaveHeading() {return m_boxes.size();};
-	float GetTurn() {return CAM_ANGLE * m_turns[0];};
-	float GetDistance() {return sqrtf(m_locations[0].dot(m_locations[0]));};
+	size_t HaveHeading() {return m_boxes.size();};
+	float GetTurn(size_t i=0) {return CAM_ANGLE * m_turns[i];};
+	float GetDistance(size_t i=0) {return sqrtf(m_locations[i].dot(m_locations[i]));};
 
 	// Reading/writing a bool is atomic, no need in mutex lock
 	void Enable() {m_idle = false;};

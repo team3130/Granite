@@ -3,8 +3,9 @@
 #include "OI.h"
 #include "Video.h"
 
-CameraAim::CameraAim()
+CameraAim::CameraAim(Target_side side)
 	: m_tolerance(0)
+	, m_side(side)
 {
 	Requires(ChassisSubsystem::GetInstance());
 }
@@ -20,15 +21,24 @@ void CameraAim::Initialize()
 // Called repeatedly when this Command is scheduled to run
 void CameraAim::Execute()
 {
-	if (m_tolerance == 0 || (timer.Get() > 1.5 && fabs(ChassisSubsystem::GetInstance()->GetPIDError()) < m_tolerance)) {
+	if (m_tolerance == 0 || (timer.Get() > 1.75 && fabs(ChassisSubsystem::GetInstance()->GetPIDError()) < m_tolerance)) {
+		float turn0 = 0;
+		float turn1 = 0;
 		float turn = 0;
-		bool got_turn = false;
+		size_t nTurns = 0;
 		RobotVideo::GetInstance()->mutex_lock();
-		got_turn = RobotVideo::GetInstance()->HaveHeading();
-		if(got_turn) turn = RobotVideo::GetInstance()->GetTurn();
+		nTurns = RobotVideo::GetInstance()->HaveHeading();
+		if(nTurns > 0) turn0 = RobotVideo::GetInstance()->GetTurn(0);
+		if(nTurns > 1) turn1 = RobotVideo::GetInstance()->GetTurn(1);
 		RobotVideo::GetInstance()->mutex_unlock();
 
-		if (got_turn) {
+		if (nTurns > 1) {
+			if (m_side==kRight) turn = turn0 > turn1 ? turn1 : turn0;
+			else                turn = turn0 > turn1 ? turn0 : turn1;
+		}
+		else turn = turn0;
+
+		if (nTurns > 0) {
 			m_tolerance = fabs(turn) / 8;
 			if (m_tolerance < 1.0) m_tolerance = 1.0;
 			ChassisSubsystem::GetInstance()->HoldAngle(turn);
@@ -38,6 +48,9 @@ void CameraAim::Execute()
 			timer.Reset();
 			timer.Start();
 		}
+		std::ostringstream oss7;
+		oss7 << (m_side==kRight?"R:":"L:") << nTurns << " 0:" << turn0 << " 1:" << turn1;
+		SmartDashboard::PutString("DB/String 7", oss7.str());
 	}
 	std::ostringstream oss6;
 	oss6 << "Err: " << ChassisSubsystem::GetInstance()->GetPIDError();

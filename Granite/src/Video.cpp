@@ -9,7 +9,7 @@
 #include <Timer.h>
 
 const char* RobotVideo::IMG_FILE_NAME = "/var/volatile/tmp/alpha.png";
-const double RobotVideo::CAPTURE_FPS = 7.5;
+const double RobotVideo::CAPTURE_FPS = 10;
 const double RobotVideo::CAM_ANGLE = 24.5;
 
 
@@ -119,7 +119,8 @@ size_t RobotVideo::ProcessContours(std::vector<std::vector<cv::Point>> contours)
 	{
 		// Only process a contour if it is big enough, otherwise it's either too far away or just a noise
 		if (cv::contourArea(cont) > MIN_AREA) {
-			double similarity = cv::matchShapes(stencil, cont, CV_CONTOURS_MATCH_I3, 1);
+			//double similarity = cv::matchShapes(stencil, cont, CV_CONTOURS_MATCH_I3, 1);
+			double similarity = 500.0 / cv::contourArea(cont);
 
 			// Less the similarity index closer the contour matches the stencil shape
 			// We are interested only in very similar ones

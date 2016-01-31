@@ -16,8 +16,8 @@ public:
 	Joystick*	stickL;
 	Joystick*	stickR;
 	Joystick*	gamepad;
-	Button*		magicButton;
-	Button*		feedButton;
+	Button*		trigLeft;
+	Button*		trigRight;
 };
 
 #endif
