@@ -20,7 +20,7 @@ void CameraAim::Initialize()
 // Called repeatedly when this Command is scheduled to run
 void CameraAim::Execute()
 {
-	if (m_tolerance == 0 || fabs(ChassisSubsystem::GetInstance()->GetPIDError()) < m_tolerance) {
+	if (m_tolerance == 0 || (timer.Get() > 1.5 && fabs(ChassisSubsystem::GetInstance()->GetPIDError()) < m_tolerance)) {
 		float turn = 0;
 		bool got_turn = false;
 		RobotVideo::GetInstance()->mutex_lock();
@@ -29,19 +29,19 @@ void CameraAim::Execute()
 		RobotVideo::GetInstance()->mutex_unlock();
 
 		if (got_turn) {
-			double newAngle  = turn;
-			m_tolerance = fabs(newAngle) / 4;
-			ChassisSubsystem::GetInstance()->HoldAngle(newAngle);
+			m_tolerance = fabs(turn) / 8;
+			if (m_tolerance < 1.0) m_tolerance = 1.0;
+			ChassisSubsystem::GetInstance()->HoldAngle(turn);
 			std::ostringstream oss5;
 			oss5 << "Tol: " << m_tolerance;
 			SmartDashboard::PutString("DB/String 5", oss5.str());
-			std::ostringstream oss6;
-			oss6 << "New: " << newAngle;
-			SmartDashboard::PutString("DB/String 6", oss6.str());
 			timer.Reset();
 			timer.Start();
 		}
 	}
+	std::ostringstream oss6;
+	oss6 << "Err: " << ChassisSubsystem::GetInstance()->GetPIDError();
+	SmartDashboard::PutString("DB/String 6", oss6.str());
 
 	OI* oi = OI::GetInstance();
 	if(oi) {
