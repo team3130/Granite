@@ -13,7 +13,7 @@ const double RobotVideo::CAPTURE_FPS = 10;
 const double RobotVideo::CAM_ANGLE = 24.5;
 
 
-static const	cv::Vec3i BlobLower(65, 192,   5);
+static const	cv::Vec3i BlobLower(65, 192,  10);
 static const	cv::Vec3i BlobUpper(90, 255, 255);
 static const 	std::vector<cv::Point> stencil = {
 		{ 32, 0 },
