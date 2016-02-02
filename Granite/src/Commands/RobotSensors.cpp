@@ -4,7 +4,7 @@
 
 RobotSensors::RobotSensors()
 {
-	arduino = new SerialPort(9600 /*, SerialPort::kUSB*/);
+	arduino = new SerialPort(9600, SerialPort::kMXP /*, SerialPort::kUSB*/);
 	timer = new Timer();
 	this->SetRunWhenDisabled(true);
 }
@@ -45,28 +45,26 @@ void RobotSensors::Execute()
 		if(!lifterZero) {
 			arduino->Write("Z", 1);
 		} */
+		size_t nTurns = 0;
+		double turn = 0;
+		RobotVideo::GetInstance()->mutex_lock();
+		nTurns = RobotVideo::GetInstance()->HaveHeading();
+		if(nTurns > 0) turn = RobotVideo::GetInstance()->GetTurn(0);
+		RobotVideo::GetInstance()->mutex_unlock();
+		if (nTurns>0) {
+			if (fabs(turn)<2.0) {
+				double a = timer->Get();
+				uint32_t res = arduino->Write("Solid green\n", 12);
+				std::ostringstream oss2;
+				oss2 << "ON:" << res << " X:" << a << " T:" << timer->Get();
+				SmartDashboard::PutString("DB/String 2", oss2.str());
+			}
+			else {
+				SmartDashboard::PutString("DB/String 2", "off target");
+			}
+		}
 	}
 
-	timer->Reset();
-	timer->Start();
-	size_t nTurns = 0;
-	double turn = 0;
-	RobotVideo::GetInstance()->mutex_lock();
-	nTurns = RobotVideo::GetInstance()->HaveHeading();
-	if(nTurns > 0) turn = RobotVideo::GetInstance()->GetTurn(0);
-	RobotVideo::GetInstance()->mutex_unlock();
-	if (nTurns>0) {
-		if (fabs(turn)<2.0) {
-			double a = timer->Get();
-			uint32_t res = arduino->Write("Solid green\n", 12);
-			std::ostringstream oss2;
-			oss2 << "ON:" << res << " X:" << a << " T:" << timer->Get();
-			SmartDashboard::PutString("DB/String 2", oss2.str());
-		}
-		else {
-			SmartDashboard::PutString("DB/String 2", "off target");
-		}
-	}
 
 	std::ostringstream oss0;
 	oss0 << "Angle: " << ChassisSubsystem::GetInstance()->GetAngle();

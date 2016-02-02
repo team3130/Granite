@@ -1,5 +1,6 @@
 #include <Commands/DefaultDrive.h>
 #include <Subsystems/Chassis.h>
+#include <Subsystems/Pusher.h>
 #include <OI.h>
 #include <Video.h>
 
@@ -30,6 +31,10 @@ void DefaultDriveCommand::Execute()
 		// Only driving manual should require Quadratic inputs. By default it should be turned off
 		// Therefore here we turn it on explicitly.
 		ChassisSubsystem::GetInstance()->TankDrive(LSpeed * LMultiplier, RSpeed * RMultiplier, true);
+
+		if(oi->stickR->GetRawButton(4)) Pusher::GetInstance()->Roll(0.35);
+		else if(oi->stickR->GetRawButton(3)) Pusher::GetInstance()->Roll(-0.4);
+		else Pusher::GetInstance()->Roll(0);
 	}
 }
 
