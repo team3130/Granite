@@ -27,7 +27,7 @@ void RobotSensors::Initialize()
 // Called repeatedly when this Command is scheduled to run
 void RobotSensors::Execute()
 {
-	if(timer->Get() > 0.2) {
+	if(timer->Get() > 0.100) {
 		timer->Reset();
 		timer->Start();
 

@@ -266,7 +266,7 @@ void RobotVideo::Run()
 		Timer timer;
 
 		timer.Reset();
-		timer.Stop();
+		timer.Start();
 
 		capture >> Im;
 		if (Im.empty()) {
@@ -275,7 +275,7 @@ void RobotVideo::Run()
 			continue;
 		}
 
-		timer.Start();
+		double t_start = timer.Get();
 		mutex_lock();
 		size_t max_locations = m_sizeLocation;
 		size_t max_headings = m_sizeHeading;
@@ -378,13 +378,13 @@ void RobotVideo::Run()
 			}
 
 			std::ostringstream oss;
-			oss << 1000.0 * timer.Get() << " msec";
+			oss << 1000.0*(timer.Get() - t_start) << " msec, " << 1.0 / timer.Get() << " fps";
 			cv::putText(Im, oss.str(), cv::Point(20,30), 1, 2, cv::Scalar(0, 200,255), 2);
 			cv::imwrite(IMG_FILE_NAME, Im);
 			//if (!m_idle) cv::imwrite("beta.png", BlobIm);
 			m_display = false;
 		}
-		usleep(1000); //sleep for 1ms
+		//usleep(1000); //sleep for 1ms
 	}
 }
 
