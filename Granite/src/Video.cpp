@@ -12,9 +12,22 @@ const char* RobotVideo::IMG_FILE_NAME = "/var/volatile/tmp/alpha.png";
 const double RobotVideo::CAPTURE_FPS = 10;
 const double RobotVideo::CAM_ANGLE = 24.5;
 
-
+/**
+ * \brief Color filter numbers
+ *
+ * We use a green ring-light and its color has Hue about 70 in OpenCV's range (0-180)
+ * We care about anything that falls between 65 and 90 by the hue but the saturation and
+ * brightness can be in a quite wide range.
+ */
 static const	cv::Vec3i BlobLower(65, 192,  10);
 static const	cv::Vec3i BlobUpper(90, 255, 255);
+
+/**
+ * \brief Stencil is a simplified "contour" that is an "ideal" shape that we're looking for.
+ *
+ * The stencil consists of 8 points - the 2d corners of the vision target how it would
+ * appear in the picture. The origin is in the left-top corner.
+ */
 static const 	std::vector<cv::Point> stencil = {
 		{ 32, 0 },
 		{ 26, 76 },
@@ -26,7 +39,12 @@ static const 	std::vector<cv::Point> stencil = {
 		{ 9, 0 }
 	};
 
-/* Real FIRSTSTRONGHOLD tower, inches */
+/** \brief Real FIRSTSTRONGHOLD tower, inches
+ *
+ * The coordinates of the real target have to be defined related to an origin and
+ * in some arbitrary units. We choose inches and the origin to be the center of the window
+ * or more precisely the middle of the top of the vision target.
+ */
 static const std::vector<cv::Point3f> objectPoints = {
 		cv::Point3d(-10, 0, 0),
 		cv::Point3d(10, 0, 0),
@@ -59,6 +77,13 @@ RobotVideo::RobotVideo()
 
 }
 
+/** \brief Get a pointer to the video processor
+ *
+ * The Video needs to be a parallel process so its cycles won't interfere with the iterations
+ * of the Command based robot code. This GetInstance spawns a posix thread as soon as the
+ * object is created. And that thread spins out on its own. The communications then happen
+ * via the shared variables and a mutex semaphore pointed to by this pointer.
+ */
 RobotVideo* RobotVideo::GetInstance()
 {
 	if(!m_pInstance) {
@@ -72,18 +97,33 @@ RobotVideo* RobotVideo::GetInstance()
 	return m_pInstance;
 };
 
+/** \brief Get the median value of the list
+ *
+ *  DataSet is a very thin wrapper around the std::list of floats.
+ *  The only extension is this method GetMedian.
+ */
 float DataSet::GetMedian()
 {
 	if (size() > 2) {
+		// To find the median an ordered array (vector) is needed.
+		// Also std::sort will modify it so we need a copy.
 		std::vector<float> ord;
 		for (float dp : *this) ord.push_back(dp);
 		std::sort(ord.begin(), ord.end());
 		return ord[ord.size() / 2];
 	}
+	// Median makes sense only if the set is of 3 or more items. Otherwise return something.
 	else if (size() > 0) return *(this->begin());
 	else return 0;
 }
 
+/** \brief Purge the camera buffer
+ *
+ * The stream takes a while to start up, and because of it, images from the camera
+ * buffer. We don't have a way to jump to the end of the stream to get the latest image, so we
+ * run this loop as fast as we can and throw away all the old images. This wait, waits some number of seconds
+ * before we are at the end of the stream, and can allow processing to begin.
+ */
 void PurgeBuffer(cv::VideoCapture& vcap, double fps=7.5)
 {
 	Timer timer;
@@ -99,10 +139,6 @@ void PurgeBuffer(cv::VideoCapture& vcap, double fps=7.5)
 		vcap.read(frame);
 		end = timer.Get();
 
-		//The stream takes a while to start up, and because of it, images from the camera
-		//buffer. We don't have a way to jump to the end of the stream to get the latest image, so we
-		//run this loop as fast as we can and throw away all the old images. This wait, waits some number of seconds
-		//before we are at the end of the stream, and can allow processing to begin.
 		if (end - start > 0.5/fps || end >= 5.0)
 			break;
 	}
@@ -255,7 +291,6 @@ void RobotVideo::Run()
 				cv::putText(Im, oss.str(), cv::Point(20,30), 1, 2, cv::Scalar(0, 200,255), 2);
 				cv::putText(Im, "Idle", cv::Point(20,CAPTURE_ROWS-40), 1, 2, cv::Scalar(0, 255,100), 2);
 				cv::imwrite(IMG_FILE_NAME, Im);
-				//if (!m_idle) cv::imwrite("beta.png", BlobIm);
 				m_display = false;
 				sleeptime = 1000000 / CAPTURE_FPS / 4;
 			}
