@@ -24,7 +24,8 @@ public:
 	static const char* IMG_FILE_NAME;
 	static const double CAPTURE_FPS;
 	static const double CAM_ANGLE;
-	static const int CAPTURE_COLS=640, CAPTURE_ROWS=480;
+	//static const int CAPTURE_COLS=640, CAPTURE_ROWS=480;
+	static const int CAPTURE_COLS=424, CAPTURE_ROWS=240;
 	static const int CAPTURE_PORT=0;
 	static const int MIN_AREA=270; // Min area in pixels, 3*(25+40+25) is a rough estimate
 	static const int MAX_TARGETS=3;

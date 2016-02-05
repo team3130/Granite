@@ -27,7 +27,7 @@ void RobotSensors::Initialize()
 // Called repeatedly when this Command is scheduled to run
 void RobotSensors::Execute()
 {
-	if(timer->Get() > 0.100) {
+	if(timer->Get() > 0.05) {
 		timer->Reset();
 		timer->Start();
 
@@ -38,16 +38,15 @@ void RobotSensors::Execute()
 		if(nTurns > 0) turn = RobotVideo::GetInstance()->GetTurn(0);
 		RobotVideo::GetInstance()->mutex_unlock();
 		if (nTurns>0) {
-			if (fabs(turn)<2.0) {
-				double a = timer->Get();
-				uint32_t res = arduino->Write("Solid green\n", 12);
-				std::ostringstream oss2;
-				oss2 << "ON:" << res << " X:" << a << " T:" << timer->Get();
-				SmartDashboard::PutString("DB/String 2", oss2.str());
-			}
-			else {
-				SmartDashboard::PutString("DB/String 2", "off target");
-			}
+			int res = 0.5 * (fabs(turn) + 1.5);
+			std::ostringstream oss2;
+			oss2 << "Target: " << res;
+			SmartDashboard::PutString("DB/String 2", oss2.str());
+			if (fabs(turn) < 1.5) res = 0;
+			if (res > 9) res = 9;
+			std::ostringstream oss;
+			oss << "Solid " << res << "\n";
+			arduino->Write(oss.str(), oss.str().size());
 		}
 		else {
 			SmartDashboard::PutString("DB/String 2", "no target");

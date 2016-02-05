@@ -9,7 +9,7 @@
 #include <Timer.h>
 
 const char* RobotVideo::IMG_FILE_NAME = "/var/volatile/tmp/alpha.png";
-const double RobotVideo::CAPTURE_FPS = 10;
+const double RobotVideo::CAPTURE_FPS = 20.0;
 const double RobotVideo::CAM_ANGLE = 24.5;
 
 /**
@@ -51,13 +51,34 @@ static const std::vector<cv::Point3f> objectPoints = {
 		cv::Point3d(10, 14, 0),
 		cv::Point3d(-10, 14, 0) };
 
+/* Microsoft HD3000 camera, 424x240, inches */
+/* %YAML:1.0
+calibration_time: "02/04/16 16:27:55"
+image_width: 424
+image_height: 240
+board_width: 9
+board_height: 6
+square_size: 9.3000000715255737e-001
+# flags: +zero_tangent_dist
+flags: 8 */
+static const cv::Matx33d camera_matrix( //: !!opencv-matrix
+		3.5268678648676683e+002, 0., 2.0327612059375753e+002, 0.,
+		3.5189453914759548e+002, 1.2064326427596691e+002, 0., 0., 1. );
+static const cv::Matx<double, 5, 1> distortion_coefficients( //: !!opencv-matrix
+		1.1831895351666220e-001, -9.2348154326823140e-001, 0., 0.,
+		1.4944420484345493e+000 );
+/* avg_reprojection_error: 2.5414490641601828e-001 */
+
+
 /* Microsoft HD3000 camera, 640x480, inches */
+/*
 static const cv::Matx33d camera_matrix(
 		6.8375310267480415e+002, 0., 3.0453360376910450e+002, 0.,
 		6.7992230853496733e+002, 2.5487597233224497e+002, 0., 0., 1. );
 static const cv::Matx<double, 5, 1> distortion_coefficients(
 		1.3027190902059158e-001, -9.7425921957537043e-001, 0., 0.,
 		1.7823261169256015e+000 );
+*/
 /* avg_reprojection_error: 2.2537737785760148e-001 */
 
 RobotVideo* RobotVideo::m_pInstance = NULL;
@@ -288,8 +309,8 @@ void RobotVideo::Run()
 			if (display) {
 				std::ostringstream oss;
 				oss << "Time: " << timer.Get();
-				cv::putText(Im, oss.str(), cv::Point(20,30), 1, 2, cv::Scalar(0, 200,255), 2);
-				cv::putText(Im, "Idle", cv::Point(20,CAPTURE_ROWS-40), 1, 2, cv::Scalar(0, 255,100), 2);
+				cv::putText(Im, oss.str(), cv::Point(20,30), 1, 1, cv::Scalar(0, 200,255), 1);
+				cv::putText(Im, "Idle", cv::Point(20,CAPTURE_ROWS-40), 1, 1, cv::Scalar(0, 255,100), 1);
 				cv::imwrite(IMG_FILE_NAME, Im);
 				m_display = false;
 				sleeptime = 1000000 / CAPTURE_FPS / 4;
@@ -363,23 +384,23 @@ void RobotVideo::Run()
 			if (m_turns.size() > 0) {
 				std::ostringstream oss;
 				oss << CAM_ANGLE * m_turns[0] << " " << max_locations;
-				cv::putText(Im, oss.str(), cv::Point(20,CAPTURE_ROWS-40), 1, 2, cv::Scalar(0, 200,255), 2);
+				cv::putText(Im, oss.str(), cv::Point(20,CAPTURE_ROWS-40), 1, 1, cv::Scalar(0, 200,255), 1);
 			}
 			else {
-				cv::putText(Im, "No target", cv::Point(20,CAPTURE_ROWS-40), 1, 2, cv::Scalar(0, 100,255), 2);
+				cv::putText(Im, "No target", cv::Point(20,CAPTURE_ROWS-40), 1, 1, cv::Scalar(0, 100,255), 1);
 			}
 			if (m_locations.size() > 0) {
 				std::ostringstream oss;
 				oss << m_locations[0];
-				cv::putText(Im, oss.str(), cv::Point(20,CAPTURE_ROWS-18), 1, 2, cv::Scalar(0, 200,255), 2);
+				cv::putText(Im, oss.str(), cv::Point(20,CAPTURE_ROWS-18), 1, 1, cv::Scalar(0, 200,255), 1);
 			}
 			else {
-				cv::putText(Im, "No location", cv::Point(20,CAPTURE_ROWS-18), 1, 2, cv::Scalar(0, 100,255), 2);
+				cv::putText(Im, "No location", cv::Point(20,CAPTURE_ROWS-18), 1, 1, cv::Scalar(0, 100,255), 1);
 			}
 
 			std::ostringstream oss;
-			oss << 1000.0*(timer.Get() - t_start) << " msec, " << 1.0 / timer.Get() << " fps";
-			cv::putText(Im, oss.str(), cv::Point(20,30), 1, 2, cv::Scalar(0, 200,255), 2);
+			oss << 1000.0*(timer.Get() - t_start) << " ms, " << 1.0 / timer.Get() << " fps";
+			cv::putText(Im, oss.str(), cv::Point(20,30), 1, 1, cv::Scalar(0, 200,255), 1);
 			cv::imwrite(IMG_FILE_NAME, Im);
 			//if (!m_idle) cv::imwrite("beta.png", BlobIm);
 			m_display = false;
