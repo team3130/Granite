@@ -176,24 +176,27 @@ size_t RobotVideo::ProcessContours(std::vector<std::vector<cv::Point>> contours)
 	{
 		// Only process a contour if it is big enough, otherwise it's either too far away or just a noise
 		if (cv::contourArea(cont) > MIN_AREA) {
-			//double similarity = cv::matchShapes(stencil, cont, CV_CONTOURS_MATCH_I3, 1);
-			double similarity = 500.0 / cv::contourArea(cont);
+			double similarity = cv::matchShapes(stencil, cont, CV_CONTOURS_MATCH_I3, 1);
 
 			// Less the similarity index closer the contour matches the stencil shape
 			// We are interested only in very similar ones
-			if (similarity < 2.0) {
+			if (similarity < 4.0) {
 				if (targets.empty()) {
 					// When we just started the first contour is our best candidate
 					targets.push_back({similarity, cont});
 				}
 				else {
+					bool found = false;
 					for (std::vector<struct Target>::iterator it = targets.begin(); it != targets.end(); ++it) {
 						// Run through all targets we have found so far and find the position where to insert the new one
 						if (similarity < it->rating) {
 							targets.insert(it, {similarity, cont});
+							found = true;
 							break;
 						}
 					}
+					if (!found) targets.push_back({similarity, cont});
+
 					// If there are too many targets after the insert pop the last one
 					if (targets.size() > MAX_TARGETS) targets.pop_back();
 				}
@@ -205,7 +208,7 @@ size_t RobotVideo::ProcessContours(std::vector<std::vector<cv::Point>> contours)
 	std::vector<cv::Vec3f> locations;
 	size_t n_locs = 0;
 	for (struct Target target : targets) {
-		//Extract 4 corner points assuming the blob is a rectanle, more or less horizontal
+		//Extract 4 corner points assuming the blob is a rectangle, more or less horizontal
 		std::vector<cv::Point> hull(4);
 		hull[0] = cv::Point(10000, 10000);		// North-West
 		hull[1] = cv::Point(0, 10000);			// North-East
@@ -327,10 +330,11 @@ void RobotVideo::Run()
 
 		std::vector<std::vector<cv::Point>> contours;
 		cv::findContours(bw, contours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
+		size_t n_locks;
 
 		if (contours.size() > 0) {
 
-			ProcessContours(contours);
+			n_locks = ProcessContours(contours);
 
 			for (size_t i = 0; i < m_boxes.size(); ++i) {
 				std::vector<cv::Point> box = m_boxes[i];
@@ -383,7 +387,12 @@ void RobotVideo::Run()
 		if (display) {
 			if (m_turns.size() > 0) {
 				std::ostringstream oss;
-				oss << CAM_ANGLE * m_turns[0] << " " << max_locations;
+				if (m_turns.size() > 1) {
+					if (m_turns[0] > m_turns[1]) oss << CAM_ANGLE * m_turns[0] << ":" << CAM_ANGLE * m_turns[1];
+					else oss << CAM_ANGLE * m_turns[1] << ":" << CAM_ANGLE * m_turns[0];
+				}
+				else oss << CAM_ANGLE * m_turns[0];
+				oss << " Buf:" << max_locations;
 				cv::putText(Im, oss.str(), cv::Point(20,CAPTURE_ROWS-40), 1, 1, cv::Scalar(0, 200,255), 1);
 			}
 			else {
