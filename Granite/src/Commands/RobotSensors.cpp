@@ -4,7 +4,7 @@
 
 RobotSensors::RobotSensors()
 {
-	arduino = new SerialPort(115200, SerialPort::kMXP);
+	arduino = new SerialPort(57600, SerialPort::kMXP);
 	arduino->SetWriteBufferMode(SerialPort::kFlushOnAccess);
 	timer = new Timer();
 	this->SetRunWhenDisabled(true);
@@ -36,6 +36,10 @@ void RobotSensors::Execute()
 		RobotVideo::GetInstance()->mutex_lock();
 		nTurns = RobotVideo::GetInstance()->HaveHeading();
 		if(nTurns > 0) turn = RobotVideo::GetInstance()->GetTurn(0);
+		if(nTurns > 1) {
+			double turn2 = RobotVideo::GetInstance()->GetTurn(1);
+			if(fabs(turn2) < fabs(turn)) turn = turn2;
+		}
 		RobotVideo::GetInstance()->mutex_unlock();
 		if (nTurns>0) {
 			int res = 0.5 * (fabs(turn) + 1.5);

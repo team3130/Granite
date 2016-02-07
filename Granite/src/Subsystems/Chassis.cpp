@@ -10,7 +10,7 @@ ChassisSubsystem* ChassisSubsystem::GetInstance()
 }
 
 ChassisSubsystem::ChassisSubsystem()
-	: PIDSubsystem("Chassis", 0.05, 0.00, 0.15)
+	: PIDSubsystem("Chassis", 0.05, 0.005, 0.15)
 	, moveSpeed(0)
 	, m_onPID(false)
 {

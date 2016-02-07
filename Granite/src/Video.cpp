@@ -398,7 +398,7 @@ void RobotVideo::Run()
 			else {
 				cv::putText(Im, "No target", cv::Point(20,CAPTURE_ROWS-40), 1, 1, cv::Scalar(0, 100,255), 1);
 			}
-			if (m_locations.size() > 0) {
+			if (n_locks > 0) {
 				std::ostringstream oss;
 				oss << m_locations[0];
 				cv::putText(Im, oss.str(), cv::Point(20,CAPTURE_ROWS-18), 1, 1, cv::Scalar(0, 200,255), 1);
